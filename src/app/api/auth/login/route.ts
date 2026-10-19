@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
-import { login } from "@/lib/auth";
+import {
+  createSession,
+  sessionCookieOptions,
+  SESSION_COOKIE,
+} from "@/lib/auth";
 
-async function authenticate(username: string, password: string) {
-  if (!username || !password) {
-    return { ok: false as const, error: "Indique usuario y contraseña." };
-  }
-  return login(username, password);
+function absoluteUrl(request: Request, path: string) {
+  const host =
+    request.headers.get("x-forwarded-host") ||
+    request.headers.get("host") ||
+    "127.0.0.1:43123";
+  const proto = request.headers.get("x-forwarded-proto") || "http";
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${proto}://${host}${normalized}`;
 }
 
 export async function POST(request: Request) {
@@ -13,14 +20,20 @@ export async function POST(request: Request) {
 
   if (contentType.includes("application/json")) {
     const body = await request.json().catch(() => null);
-    const result = await authenticate(
+    const result = await createSession(
       String(body?.username ?? ""),
       String(body?.password ?? ""),
     );
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
-    return NextResponse.json({ ok: true, user: result.user });
+    const res = NextResponse.json({ ok: true, user: result.user });
+    res.cookies.set(
+      SESSION_COOKIE,
+      result.sessionId,
+      sessionCookieOptions(result.expires),
+    );
+    return res;
   }
 
   const form = await request.formData();
@@ -29,13 +42,21 @@ export async function POST(request: Request) {
   const nextRaw = String(form.get("next") ?? "/panel");
   const next = nextRaw.startsWith("/") ? nextRaw : "/panel";
 
-  const result = await authenticate(username, password);
+  const result = await createSession(username, password);
   if (!result.ok) {
-    const url = new URL("/login", request.url);
+    const url = new URL(absoluteUrl(request, "/login"));
     url.searchParams.set("error", result.error);
     url.searchParams.set("next", next);
     return NextResponse.redirect(url, { status: 303 });
   }
 
-  return NextResponse.redirect(new URL(next, request.url), { status: 303 });
+  const res = NextResponse.redirect(absoluteUrl(request, next), {
+    status: 303,
+  });
+  res.cookies.set(
+    SESSION_COOKIE,
+    result.sessionId,
+    sessionCookieOptions(result.expires),
+  );
+  return res;
 }

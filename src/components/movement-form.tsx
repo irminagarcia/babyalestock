@@ -1,13 +1,15 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { recordMovement } from "@/lib/actions/movements";
+import {
+  recordMovementAction,
+  type MovementFormState,
+} from "@/lib/actions/movements";
 
 type ProductOption = {
   id: number;
@@ -25,6 +27,8 @@ const types = [
   { value: "manual_correction", label: "Corrección manual (+/−)" },
 ];
 
+const initial: MovementFormState = {};
+
 export function MovementForm({
   products,
   defaultProductId,
@@ -34,38 +38,25 @@ export function MovementForm({
   defaultProductId?: string;
   defaultType?: string;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [state, formAction, pending] = useActionState(
+    recordMovementAction,
+    initial,
+  );
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     crypto.randomUUID(),
   );
   const keyField = useId();
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    startTransition(async () => {
-      const result = await recordMovement(formData);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      if (result.duplicate) {
-        toast.message("Movimiento ya registrado (clave de idempotencia).");
-      } else {
-        toast.success(
-          `Movimiento guardado. Existencias actuales: ${result.stockAfter}.`,
-        );
-      }
+  useEffect(() => {
+    if (state?.error) toast.error(state.error);
+    if (state?.success) {
+      toast.success(state.success);
       setIdempotencyKey(crypto.randomUUID());
-      router.refresh();
-      form.reset();
-    });
-  }
+    }
+  }, [state]);
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-4 md:grid-cols-2">
+    <form action={formAction} className="grid gap-4 md:grid-cols-2">
       <input
         type="hidden"
         name="idempotencyKey"
@@ -134,6 +125,16 @@ export function MovementForm({
         <Label htmlFor="reason">Motivo / nota</Label>
         <Textarea id="reason" name="reason" rows={2} />
       </div>
+      {state?.error && (
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive md:col-span-2">
+          {state.error}
+        </p>
+      )}
+      {state?.success && (
+        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 md:col-span-2">
+          {state.success}
+        </p>
+      )}
       <div className="md:col-span-2">
         <Button type="submit" disabled={pending || products.length === 0}>
           {pending ? "Guardando…" : "Registrar movimiento"}

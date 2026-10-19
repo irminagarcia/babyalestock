@@ -1,7 +1,13 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { login, logout } from "@/lib/auth";
+import { cookies } from "next/headers";
+import {
+  createSession,
+  logout,
+  sessionCookieOptions,
+  SESSION_COOKIE,
+} from "@/lib/auth";
 
 export type LoginState = {
   error?: string;
@@ -19,10 +25,17 @@ export async function loginAction(
     return { error: "Indique usuario y contraseña." };
   }
 
-  const result = await login(username, password);
+  const result = await createSession(username, password);
   if (!result.ok) {
     return { error: result.error };
   }
+
+  const cookieStore = await cookies();
+  cookieStore.set(
+    SESSION_COOKIE,
+    result.sessionId,
+    sessionCookieOptions(result.expires),
+  );
 
   redirect(next.startsWith("/") ? next : "/panel");
 }

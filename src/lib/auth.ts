@@ -6,7 +6,7 @@ import { getDb } from "@/db/client";
 import { sessions, users } from "@/db/schema";
 import { runMigrations } from "@/db/migrate";
 
-const SESSION_COOKIE = "babyalestock_session";
+export const SESSION_COOKIE = "babyalestock_session";
 const SESSION_DAYS = 14;
 
 export type SessionUser = {
@@ -19,10 +19,29 @@ function ensureDb() {
   runMigrations();
 }
 
-export async function login(
+export function sessionCookieOptions(expires: Date) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    expires,
+    secure:
+      process.env.NODE_ENV === "production" &&
+      process.env.BABYALESTOCK_SECURE_COOKIE === "1",
+  };
+}
+
+/**
+ * Validates credentials and creates a session row.
+ * Returns session id so route handlers can attach Set-Cookie on the Response.
+ */
+export async function createSession(
   username: string,
   password: string,
-): Promise<{ ok: true; user: SessionUser } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; user: SessionUser; sessionId: string; expires: Date }
+  | { ok: false; error: string }
+> {
   ensureDb();
   const db = getDb();
   const user = db
@@ -52,24 +71,33 @@ export async function login(
     })
     .run();
 
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, sessionId, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    expires,
-    // Secure only in production over HTTPS; LAN HTTP needs secure:false
-    secure: process.env.NODE_ENV === "production" && process.env.BABYALESTOCK_SECURE_COOKIE === "1",
-  });
-
   return {
     ok: true,
+    sessionId,
+    expires,
     user: {
       id: user.id,
       username: user.username,
       displayName: user.displayName,
     },
   };
+}
+
+export async function login(
+  username: string,
+  password: string,
+): Promise<{ ok: true; user: SessionUser } | { ok: false; error: string }> {
+  const result = await createSession(username, password);
+  if (!result.ok) return result;
+
+  const cookieStore = await cookies();
+  cookieStore.set(
+    SESSION_COOKIE,
+    result.sessionId,
+    sessionCookieOptions(result.expires),
+  );
+
+  return { ok: true, user: result.user };
 }
 
 export async function logout(): Promise<void> {
