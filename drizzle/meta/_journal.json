@@ -15,6 +15,13 @@
       "when": 1792420891092,
       "tag": "0001_m2_phase1_landed_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792421408521,
+      "tag": "0002_m2_phase2_basket_recipes",
+      "breakpoints": true
     }
   ]
 }

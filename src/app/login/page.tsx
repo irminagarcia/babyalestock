@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -11,10 +12,19 @@ export default async function LoginPage({
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="animate-fade-up w-full max-w-md rounded-2xl border bg-card/90 p-8 shadow-sm backdrop-blur">
         <div className="mb-8 text-center">
-          <h1 className="font-display text-4xl text-primary">BabyAlestock</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Inventario local para su boutique de bebé. Inicie sesión para
-            gestionar productos y existencias.
+          <div className="mx-auto flex justify-center">
+            <Image
+              src="/brand/baby-ale-logo.jpg"
+              alt="Baby Ale"
+              width={589}
+              height={221}
+              className="h-16 w-auto max-w-[280px] object-contain"
+              priority
+            />
+          </div>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Gestión interna de stock. Inicie sesión con su usuario autorizado
+            para controlar productos y existencias.
           </p>
         </div>
         <LoginForm
@@ -22,8 +32,8 @@ export default async function LoginPage({
           initialError={params.error}
         />
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Acceso restringido a usuarios autorizados de la tienda (LAN de
-          confianza).
+          Acceso interno restringido a dos usuarios de la tienda (LAN de
+          confianza). No es una tienda en línea.
         </p>
       </div>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,6 +10,7 @@ import {
   Tags,
   Truck,
   ClipboardList,
+  Gift,
   FileSpreadsheet,
   HelpCircle,
   LogOut,
@@ -23,6 +25,7 @@ const navItems = [
   { href: "/panel", label: "Panel", icon: LayoutDashboard },
   { href: "/productos", label: "Productos", icon: Package },
   { href: "/entregas", label: "Entradas de proveedor", icon: ClipboardList },
+  { href: "/cestas", label: "Cestas regalo", icon: Gift },
   { href: "/movimientos", label: "Movimientos", icon: ArrowDownUp },
   { href: "/categorias", label: "Categorías", icon: Tags },
   { href: "/proveedores", label: "Proveedores", icon: Truck },
@@ -49,12 +52,19 @@ export function AppShell({
         )}
       >
         <div className="mb-8 flex items-start justify-between gap-2">
-          <div>
-            <p className="font-display text-2xl tracking-tight text-primary">
-              BabyAlestock
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Inventario local · boutique bebé
+          <div className="min-w-0">
+            <Link href="/panel" className="block">
+              <Image
+                src="/brand/baby-ale-logo.jpg"
+                alt="Baby Ale"
+                width={589}
+                height={221}
+                className="h-11 w-auto max-w-[180px] object-contain object-left"
+                priority
+              />
+            </Link>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Control de existencias · gestión interna
             </p>
           </div>
           <Button
@@ -121,7 +131,14 @@ export function AppShell({
           >
             <Menu />
           </Button>
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <Image
+              src="/brand/baby-ale-logo.jpg"
+              alt="Baby Ale"
+              width={589}
+              height={221}
+              className="hidden h-8 w-auto max-w-[140px] object-contain sm:block md:hidden"
+            />
             <p className="truncate text-sm text-muted-foreground">
               Control de existencias · es-ES · EUR
             </p>

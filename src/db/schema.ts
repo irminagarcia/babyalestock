@@ -260,21 +260,42 @@ export const supplierDeliveryLines = sqliteTable(
 );
 
 /* -------------------------------------------------------------------------- */
-/* Future-ready tables (schema only — not used by Milestone 1 UI)             */
+/* Gift basket recipes (M2 Phase 2) + assembly stubs (cost freeze later)      */
 /* -------------------------------------------------------------------------- */
 
-export const giftBaskets = sqliteTable("gift_baskets", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  name: text("name").notNull(),
-  sku: text("sku"),
-  assemblyMode: text("assembly_mode").notNull().default("mto"), // mto | preassembled
-  sellingPrice: real("selling_price"),
-  notes: text("notes"),
-  status: text("status").notNull().default("draft"),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(datetime('now'))`),
-});
+export const basketStatusValues = ["active", "inactive", "draft"] as const;
+export type BasketStatus = (typeof basketStatusValues)[number];
+
+/**
+ * Reusable gift-basket recipe.
+ * Estimated component cost is computed live from product landed costs — not stored.
+ * Editing does not deduct stock and does not rewrite historical movements.
+ */
+export const giftBaskets = sqliteTable(
+  "gift_baskets",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    sku: text("sku"),
+    description: text("description"),
+    /** mto | preassembled — hint for future assembly workflow */
+    assemblyMode: text("assembly_mode").notNull().default("mto"),
+    sellingPrice: real("selling_price"),
+    notes: text("notes"),
+    /** active | inactive | draft */
+    status: text("status").notNull().default("active"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [
+    uniqueIndex("gift_baskets_sku_uidx").on(t.sku),
+    index("gift_baskets_status_idx").on(t.status),
+  ],
+);
 
 export const giftBasketComponents = sqliteTable(
   "gift_basket_components",
@@ -287,10 +308,55 @@ export const giftBasketComponents = sqliteTable(
       .notNull()
       .references(() => products.id),
     quantity: integer("quantity").notNull().default(1),
+    sortOrder: integer("sort_order").notNull().default(0),
+    notes: text("notes"),
   },
   (t) => [
     uniqueIndex("gift_basket_components_uidx").on(t.basketId, t.productId),
+    index("gift_basket_components_product_idx").on(t.productId),
   ],
+);
+
+/**
+ * Future assembly runs — Phase 2 does not write here.
+ * When assembly is implemented, snapshot unit landed costs so recipe edits
+ * never rewrite historical assembled-basket costs.
+ */
+export const giftBasketAssemblies = sqliteTable("gift_basket_assemblies", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  basketId: integer("basket_id")
+    .notNull()
+    .references(() => giftBaskets.id),
+  quantity: integer("quantity").notNull().default(1),
+  /** Frozen total component cost at assemble time */
+  totalComponentCostSnapshot: real("total_component_cost_snapshot"),
+  sellingPriceSnapshot: real("selling_price_snapshot"),
+  assembledAt: text("assembled_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  notes: text("notes"),
+  status: text("status").notNull().default("recorded"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const giftBasketAssemblyLines = sqliteTable(
+  "gift_basket_assembly_lines",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    assemblyId: integer("assembly_id")
+      .notNull()
+      .references(() => giftBasketAssemblies.id, { onDelete: "cascade" }),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
+    quantity: integer("quantity").notNull(),
+    /** Frozen landed unit cost at assemble time */
+    unitLandedCostSnapshot: real("unit_landed_cost_snapshot").notNull(),
+    lineCostSnapshot: real("line_cost_snapshot").notNull(),
+  },
+  (t) => [index("gift_basket_assembly_lines_assembly_idx").on(t.assemblyId)],
 );
 
 export const orders = sqliteTable("orders", {

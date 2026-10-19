@@ -1,8 +1,8 @@
-# BabyAlestock
+# babyalestock — control de existencias de Baby Ale
 
-Inventario **local-first** para boutique de bebé: catálogo de productos, existencias, movimientos de stock y alertas de stock bajo.
+Programa **interno** de control de stock para la boutique **Baby Ale** (no es una tienda en línea). Dos usuarios locales; interfaz en **español (es-ES)** e importes en **EUR**.
 
-Interfaz completa en **español (es-ES)** con importes en **EUR**.
+En pantalla el nombre de marca es **Baby Ale**. El identificador técnico del proyecto/paquete sigue siendo `babyalestock`.
 
 ## Requisitos
 
@@ -102,7 +102,14 @@ npm start
 npm run test:landed-cost   # ejemplos numéricos de la fórmula
 ```
 
-Fases 2–3 (cestas / informe de rentabilidad) aún no implementadas.
+### Fase 2 — Recetas de cestas regalo
+
+- Rutas `/cestas`: nombre, SKU, descripción, precio de venta, estado, componentes + cantidades
+- Coste estimado = Σ (cantidad × coste de adquisición del componente); beneficio y margen estimados
+- Editar recetas no mueve stock ni reescribe historial; tablas stub para congelar costes en un futuro montaje
+- Prueba: `npm run test:basket-cost`
+
+Fase 3 (informe de rentabilidad) y montaje con consumo de stock aún no implementados.
 
 ## Stack
 

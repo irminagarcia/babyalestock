@@ -11,7 +11,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
     "setup": "npm run db:migrate && npm run db:seed",
-    "test:landed-cost": "tsx src/lib/landed-cost.test.ts"
+    "test:landed-cost": "tsx src/lib/landed-cost.test.ts",
+    "test:basket-cost": "tsx src/lib/basket-cost.test.ts"
   },
   "overrides": {
     "napi-postinstall": "0.3.4"

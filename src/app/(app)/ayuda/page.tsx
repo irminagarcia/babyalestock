@@ -4,7 +4,8 @@ export default function HelpPage() {
       <div>
         <h1 className="font-display text-3xl">Ayuda</h1>
         <p className="text-muted-foreground">
-          Guía rápida de BabyAlestock (hito 1 — inventario local).
+          Guía rápida del control de existencias de Baby Ale (gestión interna
+          de stock).
         </p>
       </div>
 
@@ -81,9 +82,32 @@ export default function HelpPage() {
       </section>
 
       <section className="space-y-2 rounded-xl border bg-card p-6">
+        <h2 className="font-display text-xl">Cestas regalo (recetas)</h2>
+        <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+          <li>
+            Una <strong>receta</strong> agrupa productos (y embalaje) con
+            cantidades.
+          </li>
+          <li>
+            El <strong>coste estimado</strong> = suma de (cantidad × coste de
+            adquisición de cada componente).
+          </li>
+          <li>
+            <strong>Beneficio / margen estimados</strong> a partir del precio de
+            venta de la cesta (estimación operativa).
+          </li>
+          <li>
+            Editar la receta <strong>no descuenta stock</strong> ni reescribe
+            entregas o movimientos. El congelado de costes al montar cestas
+            llegará más adelante.
+          </li>
+        </ul>
+      </section>
+
+      <section className="space-y-2 rounded-xl border bg-card p-6">
         <h2 className="font-display text-xl">Próximos hitos (aún no disponibles)</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          <li>Recetas de cestas regalo y consumo de componentes (M2 fase 2)</li>
+          <li>Montaje de cestas con consumo de componentes y coste congelado</li>
           <li>Informe de rentabilidad (M2 fase 3)</li>
           <li>Pedidos · Sincronización WooCommerce</li>
         </ul>

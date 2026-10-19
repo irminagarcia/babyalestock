@@ -14,9 +14,9 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "BabyAlestock — Inventario",
+  title: "Baby Ale — Control de existencias",
   description:
-    "Sistema local de inventario para boutique de bebé: productos, existencias y movimientos.",
+    "Programa interno de control de stock para Baby Ale: productos, existencias y movimientos.",
 };
 
 export default function RootLayout({
