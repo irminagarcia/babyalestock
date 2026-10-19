@@ -1,41 +1,17 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function LoginForm({ nextPath }: { nextPath: string }) {
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    const form = new FormData(e.currentTarget);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: form.get("username"),
-        password: form.get("password"),
-      }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) {
-      setError(data.error || "No se pudo iniciar sesión.");
-      return;
-    }
-    router.push(nextPath || "/panel");
-    router.refresh();
-  }
-
+export function LoginForm({
+  nextPath,
+  initialError,
+}: {
+  nextPath: string;
+  initialError?: string;
+}) {
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form action="/api/auth/login" method="post" className="space-y-4">
+      <input type="hidden" name="next" value={nextPath || "/panel"} />
       <div className="space-y-2">
         <Label htmlFor="username">Usuario</Label>
         <Input
@@ -57,13 +33,13 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           placeholder="••••••••"
         />
       </div>
-      {error && (
+      {initialError && (
         <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
+          {initialError}
         </p>
       )}
-      <Button type="submit" className="w-full animate-soft-pulse" disabled={loading}>
-        {loading ? "Entrando…" : "Entrar"}
+      <Button type="submit" className="w-full animate-soft-pulse">
+        Entrar
       </Button>
     </form>
   );

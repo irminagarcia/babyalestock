@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { logoutAction } from "@/lib/actions/auth";
 
 const navItems = [
   { href: "/panel", label: "Panel", icon: LayoutDashboard },
@@ -91,7 +92,7 @@ export function AppShell({
         <div className="mt-8 border-t pt-4 text-sm">
           <p className="text-muted-foreground">Sesión</p>
           <p className="font-medium">{userName}</p>
-          <form action="/api/auth/logout" method="post" className="mt-3">
+          <form action={logoutAction} className="mt-3">
             <Button type="submit" variant="outline" size="sm" className="w-full">
               <LogOut className="h-4 w-4" />
               Cerrar sesión

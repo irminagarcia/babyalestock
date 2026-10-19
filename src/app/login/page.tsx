@@ -17,7 +17,10 @@ export default async function LoginPage({
             gestionar productos y existencias.
           </p>
         </div>
-        <LoginForm nextPath={params.next || "/panel"} />
+        <LoginForm
+          nextPath={params.next || "/panel"}
+          initialError={params.error}
+        />
         <p className="mt-6 text-center text-xs text-muted-foreground">
           Acceso restringido a usuarios autorizados de la tienda (LAN de
           confianza).
