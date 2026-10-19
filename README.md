@@ -115,7 +115,16 @@ npm run test:landed-cost   # ejemplos numéricos de la fórmula
 - Etiquetas claras Estimado vs Registrado; sin P&L contable
 - Prueba: `npm run test:profitability`
 
-Montaje de cestas con consumo de stock aún no implementado.
+## Hito 3 — Montaje de cestas
+
+- Rutas `/montaje`, `/montaje/nuevo`, `/montaje/[id]`: ensamblar N unidades desde una receta activa
+- Consumo de componentes vía movimientos `removed` con claves `assembly:{id}:product:{pid}:consume` (sin doble descuento)
+- Confirmación transaccional: stock insuficiente → error en español y rollback completo
+- Instantánea de coste / precio de venta / nombre de receta; editar la receta no cambia montajes históricos
+- Preensamblada aumenta `finished_stock`; bajo pedido (MTO) solo consume componentes
+- Anulación con movimientos `received` compensatorios (`…:reverse`) y exclusión de Registrado
+- Registrado en `/rentabilidad` agrega montajes no anulados del periodo
+- Prueba: `npm run test:assembly`
 
 ## Stack
 

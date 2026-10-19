@@ -181,22 +181,27 @@ export default async function ProfitabilityPage({
           <NatureBadge nature="registrado" />
         </div>
         <p className="text-sm text-muted-foreground">
-          Agrega montajes de cesta con coste congelado (
-          <code>gift_basket_assemblies</code>) entre las fechas del filtro.
-          Aún no hay flujo de montaje en la UI: cuando exista, este bloque
-          mostrará totales reales del periodo.
+          Totales reales del periodo a partir de montajes{" "}
+          <Link href="/montaje" className="underline">
+            registrados
+          </Link>{" "}
+          (no anulados), con coste e ingreso congelados al confirmar. Editar la
+          receta después no cambia estas cifras.
         </p>
 
         {!data.hasRecordedBasketSales ? (
           <div className="rounded-xl border border-dashed bg-card px-4 py-8 text-sm">
             <p className="font-medium">
-              No hay ventas ni montajes de cesta <em>registrados</em> en este
-              periodo.
+              No hay montajes de cesta <em>registrados</em> en este periodo.
             </p>
             <p className="mt-2 text-muted-foreground">
-              Use la cartera <strong>Estimado</strong> arriba para la
-              rentabilidad teórica de las recetas. Movimientos de venta de
-              producto suelto en el periodo:{" "}
+              Vaya a{" "}
+              <Link href="/montaje/nuevo" className="underline">
+                Montar cestas
+              </Link>{" "}
+              para registrar unidades. La cartera <strong>Estimado</strong>{" "}
+              arriba sigue mostrando la rentabilidad teórica de las recetas.
+              Movimientos de venta de producto suelto en el periodo:{" "}
               <strong>
                 {formatNumber(data.productSalesInPeriod.movementCount)}
               </strong>{" "}
@@ -263,7 +268,7 @@ export default async function ProfitabilityPage({
                       <TableCell>{r.assembledAt.slice(0, 10)}</TableCell>
                       <TableCell>
                         <Link
-                          href={`/cestas/${r.basketId}`}
+                          href={`/montaje/${r.assemblyId}`}
                           className="hover:underline"
                         >
                           {r.basketName}

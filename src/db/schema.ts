@@ -284,6 +284,8 @@ export const giftBaskets = sqliteTable(
     notes: text("notes"),
     /** active | inactive | draft */
     status: text("status").notNull().default("active"),
+    /** Finished baskets on hand (preassembled path). */
+    finishedStock: integer("finished_stock").notNull().default(0),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -317,29 +319,51 @@ export const giftBasketComponents = sqliteTable(
   ],
 );
 
+export const assemblyStatusValues = ["recorded", "cancelled"] as const;
+export type AssemblyStatus = (typeof assemblyStatusValues)[number];
+
+export const assemblyModeValues = ["mto", "preassembled"] as const;
+export type AssemblyMode = (typeof assemblyModeValues)[number];
+
 /**
- * Future assembly runs — Phase 2 does not write here.
- * When assembly is implemented, snapshot unit landed costs so recipe edits
- * never rewrite historical assembled-basket costs.
+ * Recorded basket assemblies with frozen cost/revenue snapshots.
+ * Recipe edits must not rewrite these rows.
  */
-export const giftBasketAssemblies = sqliteTable("gift_basket_assemblies", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  basketId: integer("basket_id")
-    .notNull()
-    .references(() => giftBaskets.id),
-  quantity: integer("quantity").notNull().default(1),
-  /** Frozen total component cost at assemble time */
-  totalComponentCostSnapshot: real("total_component_cost_snapshot"),
-  sellingPriceSnapshot: real("selling_price_snapshot"),
-  assembledAt: text("assembled_at")
-    .notNull()
-    .default(sql`(datetime('now'))`),
-  notes: text("notes"),
-  status: text("status").notNull().default("recorded"),
-  createdAt: text("created_at")
-    .notNull()
-    .default(sql`(datetime('now'))`),
-});
+export const giftBasketAssemblies = sqliteTable(
+  "gift_basket_assemblies",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    basketId: integer("basket_id")
+      .notNull()
+      .references(() => giftBaskets.id),
+    quantity: integer("quantity").notNull().default(1),
+    /** Frozen total component cost **per basket unit** at assemble time */
+    totalComponentCostSnapshot: real("total_component_cost_snapshot"),
+    sellingPriceSnapshot: real("selling_price_snapshot"),
+    recipeNameSnapshot: text("recipe_name_snapshot"),
+    assemblyMode: text("assembly_mode").notNull().default("preassembled"),
+    assembledAt: text("assembled_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    assembledByUserId: integer("assembled_by_user_id").references(() => users.id),
+    notes: text("notes"),
+    /** recorded | cancelled */
+    status: text("status").notNull().default("recorded"),
+    /** Prevents double-confirm of the same client submit */
+    idempotencyKey: text("idempotency_key").notNull(),
+    cancelledAt: text("cancelled_at"),
+    cancelledByUserId: integer("cancelled_by_user_id").references(() => users.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [
+    uniqueIndex("gift_basket_assemblies_idempotency_uidx").on(t.idempotencyKey),
+    index("gift_basket_assemblies_basket_idx").on(t.basketId),
+    index("gift_basket_assemblies_assembled_idx").on(t.assembledAt),
+    index("gift_basket_assemblies_status_idx").on(t.status),
+  ],
+);
 
 export const giftBasketAssemblyLines = sqliteTable(
   "gift_basket_assembly_lines",
@@ -351,10 +375,15 @@ export const giftBasketAssemblyLines = sqliteTable(
     productId: integer("product_id")
       .notNull()
       .references(() => products.id),
+    /** Total units consumed (= recipe qty × assembly qty) */
     quantity: integer("quantity").notNull(),
+    recipeQtyPerUnit: integer("recipe_qty_per_unit").notNull().default(1),
     /** Frozen landed unit cost at assemble time */
     unitLandedCostSnapshot: real("unit_landed_cost_snapshot").notNull(),
     lineCostSnapshot: real("line_cost_snapshot").notNull(),
+    stockMovementId: integer("stock_movement_id").references(
+      () => stockMovements.id,
+    ),
   },
   (t) => [index("gift_basket_assembly_lines_assembly_idx").on(t.assemblyId)],
 );

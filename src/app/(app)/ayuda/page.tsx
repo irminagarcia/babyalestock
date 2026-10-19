@@ -97,9 +97,34 @@ export default function HelpPage() {
             venta de la cesta (estimación operativa).
           </li>
           <li>
-            Editar la receta <strong>no descuenta stock</strong> ni reescribe
-            entregas o movimientos. El congelado de costes al montar cestas
-            llegará más adelante.
+            Editar la receta <strong>no descuenta stock</strong>. El consumo y el
+            coste congelado ocurren solo al <strong>montar</strong>.
+          </li>
+        </ul>
+      </section>
+
+      <section className="space-y-2 rounded-xl border bg-card p-6">
+        <h2 className="font-display text-xl">Montaje de cestas</h2>
+        <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+          <li>
+            En <strong>Montaje de cestas</strong> elija receta, cantidad y modo
+            (preensamblada o bajo pedido).
+          </li>
+          <li>
+            Al confirmar, se descuentan los componentes con movimientos de
+            salida (clave de idempotencia) y se congelan coste e ingreso.
+          </li>
+          <li>
+            Si falta stock de algún componente, se muestra el error en español y
+            <strong> no se aplica ningún descuento parcial</strong>.
+          </li>
+          <li>
+            Preensamblada aumenta el stock acabado de la cesta; bajo pedido solo
+            consume componentes.
+          </li>
+          <li>
+            Puede <strong>anular</strong> un montaje: movimientos compensatorios
+            de entrada y exclusión de Rentabilidad → Registrado.
           </li>
         </ul>
       </section>
@@ -112,8 +137,8 @@ export default function HelpPage() {
             de adquisición actuales.
           </li>
           <li>
-            <strong>Registrado</strong>: totales del periodo cuando existan
-            montajes/ventas de cesta guardados (aún no hay montaje en la app).
+            <strong>Registrado</strong>: totales del periodo desde montajes
+            confirmados (no anulados), con instantáneas congeladas.
           </li>
           <li>No sustituye a la contabilidad ni a liquidaciones fiscales.</li>
         </ul>
@@ -122,7 +147,6 @@ export default function HelpPage() {
       <section className="space-y-2 rounded-xl border bg-card p-6">
         <h2 className="font-display text-xl">Próximos hitos (aún no disponibles)</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          <li>Montaje de cestas con consumo de componentes y coste congelado</li>
           <li>Pedidos · Sincronización WooCommerce</li>
         </ul>
       </section>

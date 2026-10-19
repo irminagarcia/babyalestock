@@ -123,7 +123,9 @@ export async function getProfitabilityOverview(opts: {
   });
 
   const { fromIso, toIso } = parsePeriodBounds(opts.from, opts.to);
-  const assemblyConditions = [];
+  const assemblyConditions = [
+    eq(giftBasketAssemblies.status, "recorded"),
+  ];
   if (fromIso) assemblyConditions.push(gte(giftBasketAssemblies.assembledAt, fromIso));
   if (toIso) assemblyConditions.push(lte(giftBasketAssemblies.assembledAt, toIso));
 
@@ -135,11 +137,12 @@ export async function getProfitabilityOverview(opts: {
       assembledAt: giftBasketAssemblies.assembledAt,
       totalComponentCostSnapshot: giftBasketAssemblies.totalComponentCostSnapshot,
       sellingPriceSnapshot: giftBasketAssemblies.sellingPriceSnapshot,
+      recipeNameSnapshot: giftBasketAssemblies.recipeNameSnapshot,
       basketName: giftBaskets.name,
     })
     .from(giftBasketAssemblies)
     .innerJoin(giftBaskets, eq(giftBasketAssemblies.basketId, giftBaskets.id))
-    .where(assemblyConditions.length ? and(...assemblyConditions) : undefined)
+    .where(and(...assemblyConditions))
     .orderBy(desc(giftBasketAssemblies.assembledAt))
     .all();
 
@@ -149,7 +152,7 @@ export async function getProfitabilityOverview(opts: {
     return {
       assemblyId: a.id,
       basketId: a.basketId,
-      basketName: a.basketName,
+      basketName: a.recipeNameSnapshot || a.basketName,
       quantity: a.quantity,
       assembledAt: a.assembledAt,
       costSnapshot: Math.round((cost + Number.EPSILON) * 10000) / 10000,
