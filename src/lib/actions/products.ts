@@ -216,6 +216,7 @@ export async function listProducts(filters: ProductFilters = {}) {
       minStock: products.minStock,
       sellingPrice: products.sellingPrice,
       purchaseCost: products.purchaseCost,
+      landedCost: products.landedCost,
       usage: products.usage,
       status: products.status,
       storageLocation: products.storageLocation,

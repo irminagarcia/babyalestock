@@ -35,6 +35,33 @@ export default function HelpPage() {
       </section>
 
       <section className="space-y-2 rounded-xl border bg-card p-6">
+        <h2 className="font-display text-xl">Entradas de proveedor y costes</h2>
+        <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+          <li>
+            <strong>Precio de compra</strong>: neto unitario de la línea de
+            entrega.
+          </li>
+          <li>
+            <strong>Portes y otros</strong>: se reparte entre líneas por valor
+            neto (predeterminado) o por cantidad — nunca el mismo importe a cada
+            producto por separado.
+          </li>
+          <li>
+            <strong>IVA recuperable</strong>: se anota pero no entra en el coste
+            de adquisición. El IVA no recuperable sí.
+          </li>
+          <li>
+            <strong>Coste de adquisición</strong>: media ponderada al confirmar
+            entregas.
+          </li>
+          <li>
+            <strong>Beneficio estimado</strong>: precio de venta − coste de
+            adquisición (estimación operativa, no contabilidad).
+          </li>
+        </ul>
+      </section>
+
+      <section className="space-y-2 rounded-xl border bg-card p-6">
         <h2 className="font-display text-xl">Archivar vs. borrar</h2>
         <p className="text-sm text-muted-foreground">
           Archivar oculta el producto del catálogo activo pero conserva todo el
@@ -56,9 +83,9 @@ export default function HelpPage() {
       <section className="space-y-2 rounded-xl border bg-card p-6">
         <h2 className="font-display text-xl">Próximos hitos (aún no disponibles)</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-          <li>Recetas de cestas regalo y consumo de componentes</li>
-          <li>Pedidos</li>
-          <li>Sincronización WooCommerce</li>
+          <li>Recetas de cestas regalo y consumo de componentes (M2 fase 2)</li>
+          <li>Informe de rentabilidad (M2 fase 3)</li>
+          <li>Pedidos · Sincronización WooCommerce</li>
         </ul>
       </section>
     </div>

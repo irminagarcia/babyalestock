@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { SESSION_COOKIE } from "@/lib/auth";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value;
   if (sessionId) {
     try {

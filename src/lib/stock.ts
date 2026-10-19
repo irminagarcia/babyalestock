@@ -16,6 +16,13 @@ export type CreateMovementInput = {
   occurredAt?: string | null;
   userId: number;
   idempotencyKey?: string | null;
+  sourceType?: string | null;
+  sourceId?: number | null;
+  /**
+   * When true, skip the outer transaction (caller already inside one).
+   * Uses the same SQLite connection.
+   */
+  skipTransaction?: boolean;
 };
 
 export type MovementResult =
@@ -53,62 +60,71 @@ export function createStockMovement(input: CreateMovementInput): MovementResult 
     };
   }
 
+  const run = () => {
+    const product = db
+      .select()
+      .from(products)
+      .where(eq(products.id, input.productId))
+      .get();
+
+    if (!product) {
+      throw new Error("Producto no encontrado.");
+    }
+
+    if (product.status === "archived") {
+      throw new Error(
+        "No se pueden registrar movimientos en un producto archivado.",
+      );
+    }
+
+    const delta = movementDelta(input.type, input.quantity);
+    const stockBefore = product.currentStock;
+    const stockAfter = stockBefore + delta;
+
+    if (stockAfter < 0) {
+      throw new Error(
+        `Existencias insuficientes (actual: ${stockBefore}, cambio: ${delta}).`,
+      );
+    }
+
+    db.update(products)
+      .set({
+        currentStock: stockAfter,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(products.id, product.id))
+      .run();
+
+    const movement = db
+      .insert(stockMovements)
+      .values({
+        productId: product.id,
+        type: input.type,
+        quantity:
+          input.type === "manual_correction"
+            ? input.quantity
+            : Math.abs(input.quantity),
+        stockBefore,
+        stockAfter,
+        reason: input.reason?.trim() || null,
+        occurredAt: input.occurredAt || new Date().toISOString(),
+        userId: input.userId,
+        idempotencyKey: key,
+        sourceType: input.sourceType ?? null,
+        sourceId: input.sourceId ?? null,
+      })
+      .returning()
+      .get();
+
+    return { movementId: movement.id, stockAfter, stockBefore };
+  };
+
   try {
-    const result = sqlite.transaction(() => {
-      const product = db
-        .select()
-        .from(products)
-        .where(eq(products.id, input.productId))
-        .get();
+    const result = input.skipTransaction
+      ? run()
+      : sqlite.transaction(run)();
 
-      if (!product) {
-        throw new Error("Producto no encontrado.");
-      }
-
-      if (product.status === "archived") {
-        throw new Error(
-          "No se pueden registrar movimientos en un producto archivado.",
-        );
-      }
-
-      const delta = movementDelta(input.type, input.quantity);
-      const stockBefore = product.currentStock;
-      const stockAfter = stockBefore + delta;
-
-      if (stockAfter < 0) {
-        throw new Error(
-          `Existencias insuficientes (actual: ${stockBefore}, cambio: ${delta}).`,
-        );
-      }
-
-      db.update(products)
-        .set({
-          currentStock: stockAfter,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(products.id, product.id))
-        .run();
-
-      const movement = db
-        .insert(stockMovements)
-        .values({
-          productId: product.id,
-          type: input.type,
-          quantity: input.type === "manual_correction" ? input.quantity : Math.abs(input.quantity),
-          stockBefore,
-          stockAfter,
-          reason: input.reason?.trim() || null,
-          occurredAt: input.occurredAt || new Date().toISOString(),
-          userId: input.userId,
-          idempotencyKey: key,
-        })
-        .returning()
-        .get();
-
-      return { movementId: movement.id, stockAfter };
-    })();
-
-    return { ok: true, ...result };
+    return { ok: true, movementId: result.movementId, stockAfter: result.stockAfter };
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "No se pudo registrar el movimiento.";

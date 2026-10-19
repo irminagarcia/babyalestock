@@ -198,7 +198,7 @@ export function ProductForm({
           </select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="purchaseCost">Coste de compra (EUR)</Label>
+          <Label htmlFor="purchaseCost">Precio de compra (EUR)</Label>
           <Input
             id="purchaseCost"
             name="purchaseCost"
@@ -207,6 +207,10 @@ export function ProductForm({
             min="0"
             defaultValue={initial?.purchaseCost ?? ""}
           />
+          <p className="text-xs text-muted-foreground">
+            Neto de referencia. Las entregas de proveedor actualizan este valor
+            y el coste de adquisición (media ponderada).
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="sellingPrice">Precio de venta (EUR)</Label>

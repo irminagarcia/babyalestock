@@ -221,7 +221,7 @@ export default async function PanelPage() {
           <Link href="/productos/nuevo">Añadir producto</Link>
         </Button>
         <Button asChild variant="secondary">
-          <Link href="/movimientos?tipo=received">Entrada de stock</Link>
+          <Link href="/entregas/nueva">Entrada de proveedor</Link>
         </Button>
         <Button asChild variant="outline">
           <Link href="/movimientos?tipo=sale">Registrar venta</Link>

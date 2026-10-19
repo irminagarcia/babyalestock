@@ -90,6 +90,20 @@ npm start
 - Importación / exportación CSV
 - Esquema preparado para cestas, pedidos y WooCommerce (sin implementar aún)
 
+## Hito 2 · Fase 1 — Coste de adquisición
+
+- **Entradas de proveedor** (`/entregas`): cabecera (proveedor, fecha, portes, otros, método de reparto) + líneas (producto, cantidad, precio de compra, IVA %, recuperable/no recuperable)
+- Reparto de portes/otros: por valor neto (predeterminado) o por cantidad — proporcional, nunca el mismo porte a cada producto por igual
+- **Coste de adquisición unitario** = (neto línea + portes/otros asignados + IVA no recuperable) / cantidad; el IVA recuperable se registra aparte
+- Al **confirmar** la entrega: recepción de stock vía movimientos existentes (idempotencia por línea) y actualización del coste de adquisición del producto por **media ponderada**
+- En ficha de producto: precio de compra, coste de adquisición, precio de venta, **beneficio estimado** (venta − adquisición; estimación operativa)
+
+```bash
+npm run test:landed-cost   # ejemplos numéricos de la fórmula
+```
+
+Fases 2–3 (cestas / informe de rentabilidad) aún no implementadas.
+
 ## Stack
 
 Next.js (App Router) · TypeScript · Tailwind · shadcn/ui · SQLite · Drizzle ORM

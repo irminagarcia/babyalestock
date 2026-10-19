@@ -81,7 +81,8 @@ export default async function ProductsPage({
                 <TableHead>Producto</TableHead>
                 <TableHead>Categoría</TableHead>
                 <TableHead>Existencias</TableHead>
-                <TableHead>Precio</TableHead>
+                <TableHead>P. venta</TableHead>
+                <TableHead>Coste adq.</TableHead>
                 <TableHead>Uso</TableHead>
                 <TableHead>Estado</TableHead>
               </TableRow>
@@ -129,6 +130,9 @@ export default async function ProductsPage({
                       </p>
                     </TableCell>
                     <TableCell>{formatEur(p.sellingPrice)}</TableCell>
+                    <TableCell>
+                      {formatEur(p.landedCost ?? p.purchaseCost)}
+                    </TableCell>
                     <TableCell>
                       {usageLabels[p.usage as keyof typeof usageLabels] ||
                         p.usage}

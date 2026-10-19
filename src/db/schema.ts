@@ -108,7 +108,13 @@ export const products = sqliteTable(
     size: text("size"),
     color: text("color"),
     supplierId: integer("supplier_id").references(() => suppliers.id),
+    /** Precio de compra (neto unitario de referencia / última compra). */
     purchaseCost: real("purchase_cost"),
+    /**
+     * Coste de adquisición (landed) — media ponderada de entregas confirmadas.
+     * Usar para beneficio estimado; no incluye IVA recuperable.
+     */
+    landedCost: real("landed_cost"),
     sellingPrice: real("selling_price"),
     currentStock: integer("current_stock").notNull().default(0),
     minStock: integer("min_stock").notNull().default(0),
@@ -161,6 +167,9 @@ export const stockMovements = sqliteTable(
     userId: integer("user_id").references(() => users.id),
     /** Prevents accidental duplicate deductions on double-submit / retries. */
     idempotencyKey: text("idempotency_key").notNull(),
+    /** Optional link: e.g. delivery_line + line id */
+    sourceType: text("source_type"),
+    sourceId: integer("source_id"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -169,6 +178,84 @@ export const stockMovements = sqliteTable(
     uniqueIndex("stock_movements_idempotency_uidx").on(t.idempotencyKey),
     index("stock_movements_product_idx").on(t.productId),
     index("stock_movements_occurred_idx").on(t.occurredAt),
+    index("stock_movements_source_idx").on(t.sourceType, t.sourceId),
+  ],
+);
+
+export const allocationMethodValues = ["by_net_value", "by_quantity"] as const;
+export type AllocationMethod = (typeof allocationMethodValues)[number];
+
+export const deliveryStatusValues = ["draft", "confirmed", "cancelled"] as const;
+export type DeliveryStatus = (typeof deliveryStatusValues)[number];
+
+/** Entrada de proveedor (entrega) — cabecera. */
+export const supplierDeliveries = sqliteTable(
+  "supplier_deliveries",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    supplierId: integer("supplier_id")
+      .notNull()
+      .references(() => suppliers.id),
+    deliveryDate: text("delivery_date").notNull(),
+    reference: text("reference"),
+    shippingCost: real("shipping_cost").notNull().default(0),
+    otherCosts: real("other_costs").notNull().default(0),
+    allocationMethod: text("allocation_method").notNull().default("by_net_value"),
+    status: text("status").notNull().default("draft"),
+    notes: text("notes"),
+    createdByUserId: integer("created_by_user_id").references(() => users.id),
+    confirmedAt: text("confirmed_at"),
+    confirmedByUserId: integer("confirmed_by_user_id").references(() => users.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [
+    index("supplier_deliveries_supplier_idx").on(t.supplierId),
+    index("supplier_deliveries_status_idx").on(t.status),
+    index("supplier_deliveries_date_idx").on(t.deliveryDate),
+  ],
+);
+
+/** Líneas de entrega — precio de compra, IVA, coste de adquisición calculado. */
+export const supplierDeliveryLines = sqliteTable(
+  "supplier_delivery_lines",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    deliveryId: integer("delivery_id")
+      .notNull()
+      .references(() => supplierDeliveries.id, { onDelete: "cascade" }),
+    productId: integer("product_id")
+      .notNull()
+      .references(() => products.id),
+    quantity: integer("quantity").notNull(),
+    /** Precio de compra neto unitario (EUR). */
+    unitPurchaseNet: real("unit_purchase_net").notNull(),
+    /** Tipo de IVA / impuesto configurable (%). */
+    vatRate: real("vat_rate").notNull().default(21),
+    /** true = IVA recuperable (no entra en coste de adquisición). */
+    vatRecoverable: integer("vat_recoverable", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    lineNet: real("line_net").notNull().default(0),
+    vatAmount: real("vat_amount").notNull().default(0),
+    allocatedOverhead: real("allocated_overhead").notNull().default(0),
+    nonRecoverableTax: real("non_recoverable_tax").notNull().default(0),
+    landedUnitCost: real("landed_unit_cost").notNull().default(0),
+    stockMovementId: integer("stock_movement_id").references(
+      () => stockMovements.id,
+    ),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [
+    index("supplier_delivery_lines_delivery_idx").on(t.deliveryId),
+    index("supplier_delivery_lines_product_idx").on(t.productId),
   ],
 );
 

@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatEur, formatNumber } from "@/lib/utils";
+import { estimatedMargin } from "@/lib/landed-cost";
 import {
   movementTypeLabels,
   statusLabels,
@@ -84,6 +85,8 @@ export default async function ProductDetailPage({
     .all();
 
   const low = product.currentStock <= product.minStock;
+  const landed = product.landedCost ?? product.purchaseCost;
+  const margin = estimatedMargin(product.sellingPrice, landed);
 
   return (
     <div className="space-y-8">
@@ -160,8 +163,20 @@ export default async function ProductDetailPage({
               ["Talla", product.size],
               ["Color", product.color],
               ["Proveedor", supplier?.name],
-              ["Coste de compra", formatEur(product.purchaseCost)],
+              ["Precio de compra", formatEur(product.purchaseCost)],
+              [
+                "Coste de adquisición",
+                product.landedCost != null
+                  ? formatEur(product.landedCost)
+                  : product.purchaseCost != null
+                    ? `${formatEur(product.purchaseCost)} (sin entregas aún)`
+                    : "—",
+              ],
               ["Precio de venta", formatEur(product.sellingPrice)],
+              [
+                "Beneficio estimado",
+                margin != null ? formatEur(margin) : "—",
+              ],
               ["Stock mínimo", formatNumber(product.minStock)],
               ["Ubicación", product.storageLocation],
             ].map(([label, value]) => (
@@ -173,6 +188,11 @@ export default async function ProductDetailPage({
               </div>
             ))}
           </dl>
+          <p className="mt-4 text-xs text-muted-foreground">
+            El beneficio estimado es operativo (precio de venta − coste de
+            adquisición) y no sustituye a la contabilidad ni a la liquidación
+            de IVA.
+          </p>
           {product.notes && (
             <div className="mt-6 border-t pt-4">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">

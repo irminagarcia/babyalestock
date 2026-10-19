@@ -8,6 +8,7 @@ import {
   ArrowDownUp,
   Tags,
   Truck,
+  ClipboardList,
   FileSpreadsheet,
   HelpCircle,
   LogOut,
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 const navItems = [
   { href: "/panel", label: "Panel", icon: LayoutDashboard },
   { href: "/productos", label: "Productos", icon: Package },
+  { href: "/entregas", label: "Entradas de proveedor", icon: ClipboardList },
   { href: "/movimientos", label: "Movimientos", icon: ArrowDownUp },
   { href: "/categorias", label: "Categorías", icon: Tags },
   { href: "/proveedores", label: "Proveedores", icon: Truck },
