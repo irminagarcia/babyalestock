@@ -109,7 +109,13 @@ npm run test:landed-cost   # ejemplos numéricos de la fórmula
 - Editar recetas no mueve stock ni reescribe historial; tablas stub para congelar costes en un futuro montaje
 - Prueba: `npm run test:basket-cost`
 
-Fase 3 (informe de rentabilidad) y montaje con consumo de stock aún no implementados.
+### Fase 3 — Rentabilidad
+
+- Ruta `/rentabilidad`: cartera de cestas (**Estimado**), periodo (**Registrado** cuando haya montajes), desglose de productos y cestas
+- Etiquetas claras Estimado vs Registrado; sin P&L contable
+- Prueba: `npm run test:profitability`
+
+Montaje de cestas con consumo de stock aún no implementado.
 
 ## Stack
 

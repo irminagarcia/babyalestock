@@ -105,10 +105,24 @@ export default function HelpPage() {
       </section>
 
       <section className="space-y-2 rounded-xl border bg-card p-6">
+        <h2 className="font-display text-xl">Rentabilidad</h2>
+        <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+          <li>
+            <strong>Estimado</strong>: cartera de recetas y desgloses con costes
+            de adquisición actuales.
+          </li>
+          <li>
+            <strong>Registrado</strong>: totales del periodo cuando existan
+            montajes/ventas de cesta guardados (aún no hay montaje en la app).
+          </li>
+          <li>No sustituye a la contabilidad ni a liquidaciones fiscales.</li>
+        </ul>
+      </section>
+
+      <section className="space-y-2 rounded-xl border bg-card p-6">
         <h2 className="font-display text-xl">Próximos hitos (aún no disponibles)</h2>
         <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
           <li>Montaje de cestas con consumo de componentes y coste congelado</li>
-          <li>Informe de rentabilidad (M2 fase 3)</li>
           <li>Pedidos · Sincronización WooCommerce</li>
         </ul>
       </section>
