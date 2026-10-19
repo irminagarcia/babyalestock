@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+:root {
+  --background: #f7f3ee;
+  --foreground: #2a2420;
+  --card: #fffdf9;
+  --card-foreground: #2a2420;
+  --popover: #fffdf9;
+  --popover-foreground: #2a2420;
+  --primary: #2f6f6a;
+  --primary-foreground: #f7fffe;
+  --secondary: #efe6da;
+  --secondary-foreground: #3b322c;
+  --muted: #efe8df;
+  --muted-foreground: #6d6258;
+  --accent: #f0d9c8;
+  --accent-foreground: #3b322c;
+  --destructive: #b42318;
+  --destructive-foreground: #fff7f6;
+  --border: #e2d6c8;
+  --input: #e2d6c8;
+  --ring: #2f6f6a;
+  --radius: 0.65rem;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #f3e2d4 0%, transparent 55%),
+    radial-gradient(900px 420px at 90% 0%, #d9ebe7 0%, transparent 50%),
+    var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.45s ease-out both;
+}
+
+@keyframes soft-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 111, 106, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(47, 111, 106, 0);
+  }
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 2.4s ease-in-out infinite;
+}
