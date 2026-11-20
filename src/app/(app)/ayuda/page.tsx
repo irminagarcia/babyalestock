@@ -79,12 +79,14 @@ export default function HelpPage() {
       </section>
 
       <section className="space-y-2 rounded-xl border bg-card p-6">
-        <h2 className="font-display text-xl">Datos locales</h2>
+        <h2 className="font-display text-xl">Datos (local o nube)</h2>
         <p className="text-sm text-muted-foreground">
-          La base de datos SQLite y las fotos viven en el directorio de datos
-          (<code className="mx-1">BABYALESTOCK_DATA_DIR</code> (por defecto{" "}
-          <code>~/.babyalestock</code>). Manténgalo fuera de carpetas
-          sincronizadas en la nube (iCloud, Dropbox, OneDrive).
+          En el PC de la tienda (doble clic), la base SQLite y las fotos viven en
+          el directorio de datos (<code className="mx-1">BABYALESTOCK_DATA_DIR</code>,
+          por defecto <code>~/.babyalestock</code>). Manténgalo fuera de carpetas
+          sincronizadas (iCloud, Dropbox, OneDrive). En la versión en la nube
+          (Cloudflare + Postgres), los datos están en la base remota; el login de
+          la app sigue siendo <code>admin</code> / <code>tienda</code>.
         </p>
       </section>
 

@@ -20,15 +20,23 @@ async function ensureDb() {
   await runMigrations();
 }
 
+function useSecureCookies(): boolean {
+  if (process.env.BABYALESTOCK_SECURE_COOKIE === "1") return true;
+  if (process.env.BABYALESTOCK_SECURE_COOKIE === "0") return false;
+  // Hosted HTTPS (Cloudflare / any DATABASE_URL deploy): secure cookies in production.
+  return (
+    process.env.NODE_ENV === "production" &&
+    Boolean(process.env.DATABASE_URL?.trim())
+  );
+}
+
 export function sessionCookieOptions(expires: Date) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
     path: "/",
     expires,
-    secure:
-      process.env.NODE_ENV === "production" &&
-      process.env.BABYALESTOCK_SECURE_COOKIE === "1",
+    secure: useSecureCookies(),
   };
 }
 
