@@ -94,8 +94,9 @@ BABYALESTOCK_ADMIN_PASSWORD='***' BABYALESTOCK_SHOP_PASSWORD='***' npm run db:se
 Para usar la app desde internet sin dejar un PC encendido:
 
 1. Postgres gratis ([Neon](https://neon.tech)) → secreto **`DATABASE_URL`**
-2. Cloudflare Workers (UI “Set up your application”): build `npm run build`, deploy `npx wrangler deploy`
-3. Login de la app: `admin` / `tienda` (igual que en local)
+2. Cloudflare Workers: build `npm run build`, deploy `npx wrangler deploy`
+3. Abrir **`https://babyalestock.<subdomain>.workers.dev`** (no `babyalestock.pages.dev`)
+4. Login: `admin` / `tienda`
 
 `npm run build` genera el Worker OpenNext (`.open-next/`). Sin `DATABASE_URL`, el modo local sigue usando **SQLite**. No hay secretos en el repositorio.
 
