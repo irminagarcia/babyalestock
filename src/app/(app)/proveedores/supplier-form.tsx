@@ -33,9 +33,10 @@ export function SupplierForm() {
       }}
     >
       <h2 className="font-display text-lg md:col-span-2">Nuevo proveedor</h2>
+
       <div className="space-y-2">
-        <Label htmlFor="name">Nombre *</Label>
-        <Input id="name" name="name" required />
+        <Label htmlFor="name">Nombre comercial *</Label>
+        <Input id="name" name="name" required placeholder="Ej. Baby Soft S.L." />
       </div>
       <div className="space-y-2">
         <Label htmlFor="contactName">Persona de contacto</Label>
@@ -49,13 +50,37 @@ export function SupplierForm() {
         <Label htmlFor="phone">Teléfono</Label>
         <Input id="phone" name="phone" />
       </div>
+
+      <h3 className="font-display text-base text-muted-foreground md:col-span-2 pt-2">
+        Datos fiscales
+      </h3>
+      <div className="space-y-2">
+        <Label htmlFor="taxId">NIF / CIF</Label>
+        <Input id="taxId" name="taxId" placeholder="B12345678" autoComplete="off" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="legalName">Razón social</Label>
+        <Input
+          id="legalName"
+          name="legalName"
+          placeholder="Si es distinta del nombre comercial"
+        />
+      </div>
+      <div className="space-y-2 md:col-span-2">
+        <Label htmlFor="fiscalAddress">Dirección fiscal</Label>
+        <Textarea id="fiscalAddress" name="fiscalAddress" rows={2} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="country">País</Label>
+        <Input id="country" name="country" defaultValue="España" />
+      </div>
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="notes">Notas</Label>
         <Textarea id="notes" name="notes" rows={2} />
       </div>
       <div className="md:col-span-2">
         <Button type="submit" disabled={pending}>
-          Guardar
+          Guardar proveedor
         </Button>
       </div>
     </form>
