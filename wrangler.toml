@@ -1,34 +1,17 @@
-# Cloudflare Workers (OpenNext) — NOT classic Pages.
-# Deploy: npm run build && npx wrangler deploy
+# Cloudflare Pages project "babyalestock" (OpenNext Advanced Mode).
+# Build:  npm run build
+# Deploy: npx wrangler pages deploy .open-next --project-name=babyalestock --branch=main
 #
-# Live URL (free): https://babyalestock.<account-subdomain>.workers.dev
-#   → Workers & Pages → babyalestock → Domains / Triggers → workers.dev
-# Do NOT use https://babyalestock.pages.dev — that is a Pages hostname and
-# will 404 for this Worker deploy.
+# Production URL:  https://babyalestock.pages.dev
+# Preview URL:     https://<hash>.babyalestock.pages.dev
 #
 # Secrets in the Cloudflare dashboard (never commit): DATABASE_URL
+# Do NOT use `npx wrangler deploy` (Workers) for this Pages project.
 
 name = "babyalestock"
-main = ".open-next/worker.js"
+pages_build_output_dir = ".open-next"
 compatibility_date = "2026-11-20"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
-upload_source_maps = true
-
-# Ensure the free workers.dev hostname is enabled for this Worker.
-workers_dev = true
-preview_urls = true
-
-[assets]
-directory = ".open-next/assets"
-binding = "ASSETS"
-
-[[services]]
-binding = "WORKER_SELF_REFERENCE"
-service = "babyalestock"
-
-[observability]
-enabled = true
 
 [vars]
-# Non-secret flags only. DATABASE_URL must be a Secret.
 BABYALESTOCK_SECURE_COOKIE = "1"
