@@ -55,8 +55,17 @@ npm run build
 npm start              # mismo puerto 43123
 ```
 
-Abra en este PC: [http://127.0.0.1:43123](http://127.0.0.1:43123)  
-Desde otro equipo en la misma red: `http://IP-DEL-PC:43123` (sustituya `IP-DEL-PC` por la IP local del ordenador que ejecuta la app).
+Abra en este PC: [http://127.0.0.1:43123](http://127.0.0.1:43123)
+
+### Windows — arranque de un clic (sin PowerShell a diario)
+
+1. Una vez: `powershell -ExecutionPolicy Bypass -File .\scripts\install-desktop-shortcut.ps1`  
+   (crea **Baby Ale — Arrancar** en el Escritorio), o doble clic en `scripts\start-baby-ale.bat`.
+2. Cada día: doble clic en ese acceso. **Dejad la ventana abierta.**
+3. En este PC: `http://127.0.0.1:43123`
+4. En el otro PC (misma Wi‑Fi / solo LAN): `http://babyalestock:43123` — renombrad el PC servidor a `babyalestock` (Ajustes → Sistema → Acerca de → Cambiar nombre). Si no carga, probad `http://babyalestock.local:43123` o la IP.
+
+El PC cliente solo necesita el navegador y un marcador; no instala Node.
 
 ### Usuarios por defecto (cámbielos el primer día)
 
@@ -67,6 +76,12 @@ Desde otro equipo en la misma red: `http://IP-DEL-PC:43123` (sustituya `IP-DEL-P
 
 En la app: menú **Cuenta / contraseña** (o «Cambiar contraseña» en la sesión).
 Cualquier usuario cambia la suya; `admin` puede restablecer la de `tienda`.
+
+Si el login falla tras instalar (p. ej. en Windows):
+
+```bash
+npm run reset-users    # restablece admin/tienda; no borra stock
+```
 
 También al sembrar (antes del primer uso):
 
@@ -96,11 +111,13 @@ npm run dev
 
 ## Acceso en red local (LAN)
 
-El servidor escucha en `0.0.0.0:43123`. Desde otro equipo de la misma red:
+El servidor escucha en `0.0.0.0:43123`. Preferid el nombre de equipo **`babyalestock`** (solo LAN / misma Wi‑Fi):
 
 ```text
-http://<IP-de-este-ordenador>:43123
+http://babyalestock:43123
 ```
+
+Alternativas: `http://babyalestock.local:43123` o `http://<IP-de-este-ordenador>:43123`.
 
 Use solo en una red de confianza: la autenticación es de sesión con usuario/contraseña para dos cuentas locales.
 
@@ -120,7 +137,9 @@ npm start
 | `npm run db:generate` | Generar migraciones Drizzle |
 | `npm run db:migrate` | Aplicar migraciones SQL |
 | `npm run db:seed` | Crear usuarios y taxonomía de ejemplo |
+| `npm run reset-users` | Restablecer contraseñas `admin` / `tienda` (no borra stock) |
 | `npm run setup` | Migrar + sembrar |
+| `scripts/start-baby-ale.bat` | Arranque diario en Windows (dejar ventana abierta) |
 
 ## Funciones del hito 1
 
