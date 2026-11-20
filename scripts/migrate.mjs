@@ -2,8 +2,11 @@
  * Hosted build migrate (Cursor publish-app / Cloudflare Pages).
  * Skips when DATABASE_URL is unset so local builds still pass.
  *
- * Concurrent-safe: advisory lock for whole migrate + ignore 23505 from
- * CREATE TABLE IF NOT EXISTS races on pg_type.
+ * Runs ONLY after `next build` (see package.json). Do not migrate from
+ * auth/getSession during Next page collection.
+ *
+ * Concurrent-safe: advisory lock for whole migrate + per-statement ignore
+ * of 23505 (CREATE TABLE IF NOT EXISTS races on pg_type).
  */
 import { readdir, readFile } from "node:fs/promises";
 import pg from "pg";
@@ -22,6 +25,28 @@ function isUniqueViolation(error) {
   return error && error.code === "23505";
 }
 
+function splitSqlStatements(sql) {
+  const withoutBlockComments = sql.replace(/\/\*[\s\S]*?\*\//g, "");
+  return withoutBlockComments
+    .split(";")
+    .map((chunk) =>
+      chunk
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("--"))
+        .join("\n")
+        .trim(),
+    )
+    .filter(Boolean);
+}
+
+async function execIgnoreUnique(client, sql, params) {
+  try {
+    await client.query(sql, params);
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+  }
+}
+
 // Direct connection: DATABASE_URL may go through a transaction pooler.
 const client = new pg.Client({
   connectionString: process.env.DATABASE_URL_UNPOOLED?.trim() || url,
@@ -31,37 +56,27 @@ try {
   await client.query("set lock_timeout = '60s'");
   await client.query("select pg_advisory_lock(7272741)");
   try {
-    try {
-      await client.query(
-        "create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())",
-      );
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
-    }
+    await execIgnoreUnique(
+      client,
+      "create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())",
+    );
     const done = new Set(
       (await client.query("select name from schema_migrations")).rows.map(
         (r) => r.name,
       ),
     );
     for (const file of files.filter((f) => !done.has(f))) {
-      await client.query("begin");
-      try {
-        await client.query(await readFile(`migrations/${file}`, "utf8"));
-        await client.query(
-          "insert into schema_migrations (name) values ($1) on conflict do nothing",
-          [file],
-        );
-        await client.query("commit");
-        console.log(`migrate: applied ${file}`);
-      } catch (error) {
-        await client.query("rollback");
-        if (!isUniqueViolation(error)) throw error;
-        await client.query(
-          "insert into schema_migrations (name) values ($1) on conflict do nothing",
-          [file],
-        );
-        console.log(`migrate: ${file} concurrent — treated as applied`);
+      const sql = await readFile(`migrations/${file}`, "utf8");
+      // Autocommit per statement so a 23505 on one DDL does not abort the rest.
+      for (const statement of splitSqlStatements(sql)) {
+        await execIgnoreUnique(client, statement);
       }
+      await execIgnoreUnique(
+        client,
+        "insert into schema_migrations (name) values ($1) on conflict do nothing",
+        [file],
+      );
+      console.log(`migrate: applied ${file}`);
     }
   } finally {
     await client.query("select pg_advisory_unlock(7272741)").catch(() => {});

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { eq, and, gt } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
-import { getDb } from "@/db/client";
+import { getDb, usingPostgres } from "@/db/client";
 import { one } from "@/db/query";
 import { sessions, users } from "@/db/schema";
 import { runMigrations } from "@/db/migrate";
@@ -17,12 +17,12 @@ export type SessionUser = {
 };
 
 async function ensureDb() {
-  // Hosted `npm run build` runs scripts/migrate.mjs after `next build`.
-  // Skip during production prerender so parallel Next workers do not race
-  // CREATE TABLE IF NOT EXISTS on schema_migrations (pg_type 23505).
-  if (process.env.NEXT_PHASE === "phase-production-build") {
-    return;
-  }
+  // Hosted Postgres: migrate ONLY via scripts/migrate.mjs after `next build`.
+  // Never migrate from getSession/auth — Next parallel page collection races
+  // CREATE TABLE IF NOT EXISTS on pg_type (23505).
+  if (usingPostgres()) return;
+  if (process.env.NEXT_PHASE === "phase-production-build") return;
+  if (process.env.BABYALESTOCK_SKIP_MIGRATE === "1") return;
   await runMigrations();
 }
 
