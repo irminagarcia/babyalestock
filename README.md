@@ -38,6 +38,8 @@ npm run build
 npm start
 ```
 
+Use plain `npm install` (the repo includes `.npmrc` with `legacy-peer-deps=true`). If you still see `ERESOLVE`, run `npm install --legacy-peer-deps` once, then `git pull` again.
+
 La base de datos usa **libsql** (binarios precompilados). No hace falta Python ni herramientas de Visual Studio.
 
 Desarrollo / prueba rápida:
