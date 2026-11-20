@@ -18,9 +18,9 @@ Write-Host ""
 Write-Host "En ESTE PC abrid el navegador en:"
 Write-Host "  http://127.0.0.1:43123"
 Write-Host ""
-Write-Host "Desde el OTRO PC (misma Wi-Fi), abrid:"
-Write-Host "  http://babyalestock:43123"
-Write-Host "(si no carga, probad http://babyalestock.local:43123)"
+Write-Host 'Desde el OTRO PC (misma Wi-Fi), abrid:'
+Write-Host '  http://babyalestock:43123'
+Write-Host '(si no carga, probad http://babyalestock.local:43123)'
 Write-Host ""
 Write-Host "============================================"
 Write-Host ""
@@ -33,7 +33,7 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 }
 
 if (-not (Test-Path "node_modules")) {
-  Write-Host "Primera vez: instalando dependencias (puede tardar)..."
+  Write-Host 'Primera vez: instalando dependencias (puede tardar)...'
   npm install
   if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR en npm install."
@@ -43,7 +43,7 @@ if (-not (Test-Path "node_modules")) {
 }
 
 if (-not (Test-Path ".next")) {
-  Write-Host "Compilando la app (solo la primera vez o tras actualizar)..."
+  Write-Host 'Compilando la app (solo la primera vez o tras actualizar)...'
   npm run build
   if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR en npm run build."
@@ -52,18 +52,19 @@ if (-not (Test-Path ".next")) {
   }
 }
 
-Write-Host "Arrancando... (no cerréis esta ventana)"
+Write-Host 'Arrancando... (no cerreis esta ventana)'
 Write-Host ""
 npm start
 $exitCode = $LASTEXITCODE
 
 Write-Host ""
 if ($exitCode -ne 0) {
-  Write-Host "La app se detuvo con un error (código $exitCode)."
-  Write-Host "Si no podéis entrar con admin / admin123:"
-  Write-Host "  npm run reset-users"
+  Write-Host ('La app se detuvo con un error (codigo {0}).' -f $exitCode)
+  Write-Host 'Si no podeis entrar con admin / admin123:'
+  Write-Host '  npm run reset-users'
 } else {
-  Write-Host "La app se ha cerrado."
+  Write-Host 'La app se ha cerrado.'
 }
+
 Read-Host "Pulsad Enter para cerrar"
 exit $exitCode
