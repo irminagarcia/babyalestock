@@ -21,7 +21,7 @@ $Shortcut = $Wsh.CreateShortcut($ShortcutPath)
 $Shortcut.TargetPath = $BatPath
 $Shortcut.WorkingDirectory = $ProjectRoot
 $Shortcut.WindowStyle = 1
-$Shortcut.Description = "Arrancar Baby Ale stock (dejar la ventana abierta)"
+$Shortcut.Description = 'Arrancar Baby Ale stock (dejar la ventana abierta)'
 $Shortcut.Save()
 
 Write-Host ""
