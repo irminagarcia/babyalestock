@@ -89,18 +89,16 @@ También al sembrar (antes del primer uso):
 BABYALESTOCK_ADMIN_PASSWORD='***' BABYALESTOCK_SHOP_PASSWORD='***' npm run db:seed
 ```
 
-## Hosting cloud (Cloudflare Workers + Neon)
+## Hosting cloud (Cloudflare Pages + Neon)
 
 Para usar la app desde internet sin dejar un PC encendido:
 
 1. Postgres gratis ([Neon](https://neon.tech)) → secreto **`DATABASE_URL`**
-2. Cloudflare Workers: build `npm run build`, deploy `npx wrangler deploy`
-3. Abrir **`https://babyalestock.<subdomain>.workers.dev`** (no `babyalestock.pages.dev`)
-4. Login: `admin` / `tienda`
+2. Cloudflare **Pages** project `babyalestock` connected to GitHub `main`
+3. Build `npm run build` → deploy `npx wrangler pages deploy .open-next --project-name=babyalestock --branch=main`
+4. Open **`https://babyalestock.pages.dev`** → login `admin` / `tienda`
 
-`npm run build` genera el Worker OpenNext (`.open-next/`). Sin `DATABASE_URL`, el modo local sigue usando **SQLite**. No hay secretos en el repositorio.
-
-Ver guía: Project Cursor `internal/hosted-deploy.md`.
+If the dashboard says Git is **disconnected**, reconnect GitHub and redeploy `main` (see Project `internal/hosted-deploy.md`). `npm run build` prepares OpenNext Pages output (`.open-next/` with `_worker.js`). Without `DATABASE_URL`, local mode still uses **SQLite**.
 
 ## Directorio de datos (importante)
 
