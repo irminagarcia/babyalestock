@@ -9,15 +9,16 @@ let migratePromise: Promise<void> | null = null;
 /**
  * Applies SQL migrations.
  * - Local (no DATABASE_URL): ./drizzle/*.sql on SQLite (libsql file).
- * - Hosted (DATABASE_URL): ./migrations/*.sql on Postgres (also run via scripts/migrate.mjs on build).
+ * - Hosted (DATABASE_URL): ./migrations/*.sql on Postgres (prefer scripts/migrate.mjs
+ *   after `next build` — do not call from auth during page collection).
  *
- * Safe under concurrency: process singleflight + Postgres advisory lock +
- * ignore unique_violation (23505) from CREATE TABLE IF NOT EXISTS races on pg_type.
+ * Concurrent-safe: process singleflight + session advisory lock for the whole
+ * migrate + per-statement ignore of unique_violation (23505) from
+ * CREATE TABLE IF NOT EXISTS races on pg_type.
  */
 export async function runMigrations(): Promise<void> {
   if (!migratePromise) {
     migratePromise = runMigrationsInner().catch((err) => {
-      // Allow a later caller to retry after a failed attempt.
       migratePromise = null;
       throw err;
     });
@@ -40,6 +41,21 @@ function isUniqueViolation(error: unknown): boolean {
     "code" in error &&
     (error as { code?: string }).code === "23505"
   );
+}
+
+/** Split a migration file into executable statements (no function bodies in our SQL). */
+export function splitSqlStatements(sql: string): string[] {
+  const withoutBlockComments = sql.replace(/\/\*[\s\S]*?\*\//g, "");
+  return withoutBlockComments
+    .split(";")
+    .map((chunk) =>
+      chunk
+        .split("\n")
+        .filter((line) => !line.trim().startsWith("--"))
+        .join("\n")
+        .trim(),
+    )
+    .filter(Boolean);
 }
 
 async function runSqliteMigrations(): Promise<void> {
@@ -98,6 +114,18 @@ async function runSqliteMigrations(): Promise<void> {
   }
 }
 
+async function execPgIgnoreUnique(
+  client: { query: (sql: string, params?: unknown[]) => Promise<unknown> },
+  sql: string,
+  params?: unknown[],
+): Promise<void> {
+  try {
+    await client.query(sql, params);
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+  }
+}
+
 async function runPostgresMigrations(): Promise<void> {
   const url = getDatabaseUrl();
   if (!url) {
@@ -114,20 +142,14 @@ async function runPostgresMigrations(): Promise<void> {
 
   try {
     await client.query("set lock_timeout = '60s'");
-    // Session lock (needs direct / session-mode connection). Held for the
-    // whole migrate, including CREATE TABLE — not just the DDL after.
+    // Session lock held for the whole migrate (including CREATE TABLE).
+    // Needs a direct / session-mode connection (DATABASE_URL_UNPOOLED).
     await client.query("select pg_advisory_lock(7272741)");
     try {
-      try {
-        await client.query(
-          "create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())",
-        );
-      } catch (error) {
-        // Parallel CREATE TABLE IF NOT EXISTS can still race on pg_type
-        // (pg_type_typname_nsp_index) when the advisory lock is ineffective
-        // (e.g. transaction pooler). Table already exists — continue.
-        if (!isUniqueViolation(error)) throw error;
-      }
+      await execPgIgnoreUnique(
+        client,
+        "create table if not exists schema_migrations (name text primary key, applied_at timestamptz not null default now())",
+      );
 
       const migrationsDir = path.join(process.cwd(), "migrations");
       const files = (
@@ -148,30 +170,20 @@ async function runPostgresMigrations(): Promise<void> {
       );
 
       for (const file of files.filter((f) => !done.has(f))) {
-        await client.query("begin");
-        try {
-          const sql = await fs.promises.readFile(
-            path.join(migrationsDir, file),
-            "utf8",
-          );
-          await client.query(sql);
-          await client.query(
-            "insert into schema_migrations (name) values ($1) on conflict do nothing",
-            [file],
-          );
-          await client.query("commit");
-          console.log(`migrate: applied ${file}`);
-        } catch (error) {
-          await client.query("rollback");
-          // Concurrent IF NOT EXISTS DDL can hit pg_type 23505; after rollback
-          // record the file if another worker left schema half-applied.
-          if (!isUniqueViolation(error)) throw error;
-          await client.query(
-            "insert into schema_migrations (name) values ($1) on conflict do nothing",
-            [file],
-          );
-          console.log(`migrate: ${file} concurrent — treated as applied`);
+        const sql = await fs.promises.readFile(
+          path.join(migrationsDir, file),
+          "utf8",
+        );
+        // Autocommit per statement so a 23505 on one DDL does not abort the rest.
+        for (const statement of splitSqlStatements(sql)) {
+          await execPgIgnoreUnique(client, statement);
         }
+        await execPgIgnoreUnique(
+          client,
+          "insert into schema_migrations (name) values ($1) on conflict do nothing",
+          [file],
+        );
+        console.log(`migrate: applied ${file}`);
       }
     } finally {
       await client.query("select pg_advisory_unlock(7272741)").catch(() => {

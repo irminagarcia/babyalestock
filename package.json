@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 43123",
-    "build": "next build && node scripts/migrate.mjs && node scripts/seed-hosted.mjs && opennextjs-cloudflare build --skipNextBuild",
+    "build": "BABYALESTOCK_SKIP_MIGRATE=1 next build && node scripts/migrate.mjs && node scripts/seed-hosted.mjs && opennextjs-cloudflare build --skipNextBuild",
     "build:next": "next build",
     "start": "next start --hostname 0.0.0.0 --port 43123",
     "lint": "next lint",
