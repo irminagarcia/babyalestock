@@ -28,9 +28,10 @@ export function CsvPanel() {
       <section className="space-y-4 rounded-xl border bg-card p-6">
         <h2 className="font-display text-xl">Importar productos</h2>
         <p className="text-sm text-muted-foreground">
-          Si el CSV incluye <code>sku</code> y ya existe, se actualiza la ficha
-          (las existencias solo se establecen al crear). Categorías, subcategorías
-          y proveedores se crean automáticamente si faltan.
+          Si el CSV incluye <code>sku</code> y ya existe, se actualiza la ficha.
+          Por defecto las existencias solo se establecen al crear. Active la
+          casilla de inventariar para fijar también el stock al coincidir por
+          SKU. Categorías, subcategorías y proveedores se crean si faltan.
         </p>
         <form
           className="space-y-3"
@@ -59,6 +60,19 @@ export function CsvPanel() {
             <Label htmlFor="file">Archivo CSV</Label>
             <Input id="file" name="file" type="file" accept=".csv,text/csv" required />
           </div>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="updateStockOnMatch"
+              value="1"
+              className="mt-1"
+            />
+            <span>
+              <strong>Inventariar:</strong> al coincidir por SKU, actualizar
+              también la columna <code>existencias</code> (útil para carga
+              inicial masiva).
+            </span>
+          </label>
           <Button type="submit" disabled={pending}>
             {pending ? "Importando…" : "Importar"}
           </Button>

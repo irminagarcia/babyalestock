@@ -15,6 +15,7 @@ import {
   LineChart,
   FileSpreadsheet,
   HelpCircle,
+  KeyRound,
   LogOut,
   Menu,
   X,
@@ -34,6 +35,7 @@ const navItems = [
   { href: "/categorias", label: "Categorías", icon: Tags },
   { href: "/proveedores", label: "Proveedores", icon: Truck },
   { href: "/csv", label: "Importar / Exportar", icon: FileSpreadsheet },
+  { href: "/cuenta", label: "Cuenta / contraseña", icon: KeyRound },
   { href: "/ayuda", label: "Ayuda", icon: HelpCircle },
 ];
 
@@ -107,6 +109,13 @@ export function AppShell({
         <div className="mt-8 border-t pt-4 text-sm">
           <p className="text-muted-foreground">Sesión</p>
           <p className="font-medium">{userName}</p>
+          <Link
+            href="/cuenta"
+            onClick={() => setOpen(false)}
+            className="mt-2 inline-flex text-sm text-primary underline-offset-4 hover:underline"
+          >
+            Cambiar contraseña
+          </Link>
           <form action="/api/auth/logout" method="post" className="mt-3">
             <Button type="submit" variant="outline" size="sm" className="w-full">
               <LogOut className="h-4 w-4" />

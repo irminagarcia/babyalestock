@@ -95,6 +95,13 @@ export async function importProductsCsv(formData: FormData) {
     };
   }
 
+  // Optional: when matching by SKU, also set existencias (for bulk inventariar).
+  // Default remains "ficha only" so day-to-day CSV updates do not wipe stock.
+  const updateStockOnMatch =
+    formData.get("updateStockOnMatch") === "1" ||
+    formData.get("updateStockOnMatch") === "on" ||
+    formData.get("updateStockOnMatch") === "true";
+
   const db = getDb();
   let created = 0;
   let updated = 0;
@@ -148,7 +155,14 @@ export async function importProductsCsv(formData: FormData) {
           .where(eq(products.sku, sku))
           .get();
         if (existing) {
-          db.update(products).set(values).where(eq(products.id, existing.id)).run();
+          const patch =
+            updateStockOnMatch && stock !== null
+              ? { ...values, currentStock: Math.max(0, stock) }
+              : values;
+          db.update(products)
+            .set(patch)
+            .where(eq(products.id, existing.id))
+            .run();
           updated++;
           continue;
         }

@@ -9,24 +9,42 @@ En pantalla el nombre de marca es **Baby Ale**. El identificador técnico del pr
 - Node.js 20+ (recomendado 22)
 - npm
 
-## Instalación rápida
+## Puesta en marcha (PC de la tienda)
 
 ```bash
+git clone https://github.com/irminagarcia/babyalestock.git
+cd babyalestock
 npm install
-npm run setup          # migraciones + usuarios semilla
+npm run setup          # migraciones + usuarios semilla (solo la primera vez)
+```
+
+Desarrollo / prueba rápida:
+
+```bash
 npm run dev            # http://0.0.0.0:43123 (accesible en LAN)
 ```
 
-Abra en el navegador: [http://127.0.0.1:43123](http://127.0.0.1:43123)
+Uso diario más estable:
 
-### Usuarios por defecto (cambiar tras el primer acceso)
+```bash
+npm run build
+npm start              # mismo puerto 43123
+```
+
+Abra en este PC: [http://127.0.0.1:43123](http://127.0.0.1:43123)  
+Desde otro equipo en la misma red: `http://IP-DEL-PC:43123` (sustituya `IP-DEL-PC` por la IP local del ordenador que ejecuta la app).
+
+### Usuarios por defecto (cámbielos el primer día)
 
 | Usuario  | Contraseña | Rol sugerido        |
 |----------|------------|---------------------|
 | `admin`  | `admin123` | Administración      |
 | `tienda` | `tienda123`| Personal de tienda  |
 
-Puede definir contraseñas al sembrar:
+En la app: menú **Cuenta / contraseña** (o «Cambiar contraseña» en la sesión).
+Cualquier usuario cambia la suya; `admin` puede restablecer la de `tienda`.
+
+También al sembrar (antes del primer uso):
 
 ```bash
 BABYALESTOCK_ADMIN_PASSWORD='***' BABYALESTOCK_SHOP_PASSWORD='***' npm run db:seed
@@ -87,8 +105,9 @@ npm start
 - Panel: totales, stock bajo, lista de reposición
 - Búsqueda y filtros (categoría, marca, stock, uso)
 - Categorías / subcategorías y proveedores dinámicos
-- Importación / exportación CSV
-- Esquema preparado para cestas, pedidos y WooCommerce (sin implementar aún)
+- Importación / exportación CSV (casilla «Inventariar» para fijar existencias al coincidir por SKU)
+- Cambio de contraseña en **Cuenta** (admin puede restablecer la de tienda)
+- Esquema preparado para pedidos y WooCommerce (sin implementar aún)
 
 ## Hito 2 · Fase 1 — Coste de adquisición
 

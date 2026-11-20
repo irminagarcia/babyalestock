@@ -13,8 +13,15 @@ export default function HelpPage() {
         <h2 className="font-display text-xl">Cómo empezar</h2>
         <ol className="list-decimal space-y-2 pl-5 text-sm">
           <li>Inicie sesión con un usuario autorizado.</li>
+          <li>
+            Cambie las contraseñas por defecto en{" "}
+            <strong>Cuenta / contraseña</strong>.
+          </li>
           <li>Revise o cree Categorías y Proveedores.</li>
-          <li>Añada Productos (o impórtelos por CSV).</li>
+          <li>
+            Añada Productos (o impórtelos por CSV; use la casilla Inventariar
+            si necesita fijar existencias al coincidir por SKU).
+          </li>
           <li>
             Registre Entradas de stock / Salidas / Ventas en Movimientos.
           </li>
