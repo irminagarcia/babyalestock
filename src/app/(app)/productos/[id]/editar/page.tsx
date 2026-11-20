@@ -8,11 +8,14 @@ import { ProductForm } from "@/components/product-form";
 
 export default async function EditProductPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   await requireUser();
   const { id: idRaw } = await params;
+  const query = await searchParams;
   const id = Number(idRaw);
   if (!Number.isFinite(id)) notFound();
 
@@ -42,6 +45,8 @@ export default async function EditProductPage({
       <div className="rounded-xl border bg-card p-6">
         <ProductForm
           initial={product}
+          returnTo={`/productos/${id}/editar`}
+          initialError={query.error}
           categories={cats.map((c) => ({ id: c.id, name: c.name }))}
           subcategories={subs.map((s) => ({
             id: s.id,
