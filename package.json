@@ -13,6 +13,7 @@
     "lint": "next lint",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "npm run build && npx wrangler pages deploy .open-next --project-name=babyalestock --branch=main",
+    "deploy:workers": "npm run build && npx wrangler deploy -c wrangler.workers.toml",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",

@@ -1,0 +1,28 @@
+# Fallback: Cloudflare Workers (if Pages Git keeps disconnecting).
+# Build:  npm run build
+# Deploy: npx wrangler deploy -c wrangler.workers.toml
+#
+# Live URL: https://babyalestock.<account-subdomain>.workers.dev
+# Secrets in the dashboard: DATABASE_URL
+
+name = "babyalestock"
+main = ".open-next/worker.js"
+compatibility_date = "2026-11-20"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+upload_source_maps = true
+workers_dev = true
+preview_urls = true
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "babyalestock"
+
+[observability]
+enabled = true
+
+[vars]
+BABYALESTOCK_SECURE_COOKIE = "1"
