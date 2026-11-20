@@ -3,8 +3,66 @@ import { eq } from "drizzle-orm";
 import { runMigrations } from "./migrate";
 import { getDb } from "./client";
 import { categories, products, subcategories, suppliers, users } from "./schema";
+import { getDbPath } from "../lib/paths";
+
+async function ensureUser(opts: {
+  username: string;
+  displayName: string;
+  password: string;
+}): Promise<void> {
+  const db = getDb();
+  const existing = db
+    .select()
+    .from(users)
+    .where(eq(users.username, opts.username))
+    .get();
+
+  if (existing) {
+    // Re-activate if someone disabled the account; do not overwrite passwords
+    // on normal seed (use `npm run reset-users` to force defaults).
+    if (!existing.isActive) {
+      db.update(users)
+        .set({ isActive: true })
+        .where(eq(users.username, opts.username))
+        .run();
+      console.log(`Usuario reactivado: ${opts.username}`);
+    } else {
+      console.log(`Usuario ya existe: ${opts.username}`);
+    }
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(opts.password, 10);
+  db.insert(users)
+    .values({
+      username: opts.username,
+      displayName: opts.displayName,
+      passwordHash,
+      isActive: true,
+    })
+    .run();
+
+  const row = db
+    .select()
+    .from(users)
+    .where(eq(users.username, opts.username))
+    .get();
+  if (!row) {
+    throw new Error(
+      `No se pudo crear el usuario ${opts.username} en ${getDbPath()}`,
+    );
+  }
+  const ok = await bcrypt.compare(opts.password, row.passwordHash);
+  if (!ok) {
+    throw new Error(
+      `Usuario ${opts.username} creado pero la contraseña no verifica. Ejecute: npm run reset-users`,
+    );
+  }
+  console.log(`Usuario creado: ${opts.username}`);
+}
 
 async function seed() {
+  console.log(`Sembrando base de datos: ${getDbPath()}`);
   runMigrations();
   const db = getDb();
 
@@ -22,24 +80,7 @@ async function seed() {
   ];
 
   for (const u of defaultUsers) {
-    const existing = db
-      .select()
-      .from(users)
-      .where(eq(users.username, u.username))
-      .get();
-    if (!existing) {
-      const passwordHash = await bcrypt.hash(u.password, 10);
-      db.insert(users)
-        .values({
-          username: u.username,
-          displayName: u.displayName,
-          passwordHash,
-        })
-        .run();
-      console.log(`Usuario creado: ${u.username}`);
-    } else {
-      console.log(`Usuario ya existe: ${u.username}`);
-    }
+    await ensureUser(u);
   }
 
   const sampleCategories = [
@@ -203,9 +244,13 @@ async function seed() {
   }
 
   console.log("Semilla completada.");
+  console.log(`Base de datos: ${getDbPath()}`);
   console.log("Usuarios por defecto: admin / admin123  y  tienda / tienda123");
   console.log(
-    "(Cambie las contraseñas con BABYALESTOCK_ADMIN_PASSWORD / BABYALESTOCK_SHOP_PASSWORD al sembrar.)",
+    "(Contraseñas iniciales: BABYALESTOCK_ADMIN_PASSWORD / BABYALESTOCK_SHOP_PASSWORD al sembrar.)",
+  );
+  console.log(
+    "Si el login falla: npm run reset-users  (restablece admin/tienda sin borrar stock).",
   );
 }
 
