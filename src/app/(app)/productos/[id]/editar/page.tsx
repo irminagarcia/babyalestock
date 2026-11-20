@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
+import { one } from "@/db/query";
 import { categories, products, subcategories, suppliers } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { ProductForm } from "@/components/product-form";
@@ -16,24 +17,21 @@ export default async function EditProductPage({
   if (!Number.isFinite(id)) notFound();
 
   const db = getDb();
-  const product = db.select().from(products).where(eq(products.id, id)).get();
+  const product = await one(db.select().from(products).where(eq(products.id, id)));
   if (!product) notFound();
 
-  const cats = db
+  const cats = await db
     .select()
     .from(categories)
-    .where(eq(categories.isActive, true))
-    .all();
-  const subs = db
+    .where(eq(categories.isActive, true));
+  const subs = await db
     .select()
     .from(subcategories)
-    .where(eq(subcategories.isActive, true))
-    .all();
-  const sups = db
+    .where(eq(subcategories.isActive, true));
+  const sups = await db
     .select()
     .from(suppliers)
-    .where(eq(suppliers.isActive, true))
-    .all();
+    .where(eq(suppliers.isActive, true));
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

@@ -7,21 +7,18 @@ import { ProductForm } from "@/components/product-form";
 export default async function NewProductPage() {
   await requireUser();
   const db = getDb();
-  const cats = db
+  const cats = await db
     .select()
     .from(categories)
-    .where(eq(categories.isActive, true))
-    .all();
-  const subs = db
+    .where(eq(categories.isActive, true));
+  const subs = await db
     .select()
     .from(subcategories)
-    .where(eq(subcategories.isActive, true))
-    .all();
-  const sups = db
+    .where(eq(subcategories.isActive, true));
+  const sups = await db
     .select()
     .from(suppliers)
-    .where(eq(suppliers.isActive, true))
-    .all();
+    .where(eq(suppliers.isActive, true));
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

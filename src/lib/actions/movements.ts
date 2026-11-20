@@ -42,7 +42,7 @@ export async function recordMovementAction(
     return { error: "Seleccione un producto." };
   }
 
-  const result = createStockMovement({
+  const result = await createStockMovement({
     productId,
     type,
     quantity,
@@ -88,7 +88,7 @@ export async function recordMovement(formData: FormData) {
     return { ok: false as const, error: "Seleccione un producto." };
   }
 
-  const result = createStockMovement({
+  const result = await createStockMovement({
     productId,
     type,
     quantity,
@@ -109,7 +109,7 @@ export async function recordMovement(formData: FormData) {
 export async function listMovements(limit = 100) {
   await requireUser();
   const db = getDb();
-  return db
+  return await db
     .select({
       id: stockMovements.id,
       type: stockMovements.type,
@@ -126,6 +126,5 @@ export async function listMovements(limit = 100) {
     .innerJoin(products, eq(stockMovements.productId, products.id))
     .leftJoin(users, eq(stockMovements.userId, users.id))
     .orderBy(desc(stockMovements.occurredAt), desc(stockMovements.id))
-    .limit(limit)
-    .all();
+    .limit(limit);
 }

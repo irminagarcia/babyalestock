@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
+import { one } from "@/db/query";
 import {
   categories,
   products,
@@ -41,32 +42,35 @@ export default async function ProductDetailPage({
   if (!Number.isFinite(id)) notFound();
 
   const db = getDb();
-  const product = db.select().from(products).where(eq(products.id, id)).get();
+  const product = await one(db.select().from(products).where(eq(products.id, id)));
   if (!product) notFound();
 
   const category = product.categoryId
-    ? db
-        .select()
-        .from(categories)
-        .where(eq(categories.id, product.categoryId))
-        .get()
+    ? await one(
+        db
+          .select()
+          .from(categories)
+          .where(eq(categories.id, product.categoryId)),
+      )
     : null;
   const subcategory = product.subcategoryId
-    ? db
-        .select()
-        .from(subcategories)
-        .where(eq(subcategories.id, product.subcategoryId))
-        .get()
+    ? await one(
+        db
+          .select()
+          .from(subcategories)
+          .where(eq(subcategories.id, product.subcategoryId)),
+      )
     : null;
   const supplier = product.supplierId
-    ? db
-        .select()
-        .from(suppliers)
-        .where(eq(suppliers.id, product.supplierId))
-        .get()
+    ? await one(
+        db
+          .select()
+          .from(suppliers)
+          .where(eq(suppliers.id, product.supplierId)),
+      )
     : null;
 
-  const history = db
+  const history = await db
     .select({
       id: stockMovements.id,
       type: stockMovements.type,
@@ -81,8 +85,7 @@ export default async function ProductDetailPage({
     .leftJoin(users, eq(stockMovements.userId, users.id))
     .where(eq(stockMovements.productId, id))
     .orderBy(desc(stockMovements.occurredAt))
-    .limit(50)
-    .all();
+    .limit(50);
 
   const low = product.currentStock <= product.minStock;
   const landed = product.landedCost ?? product.purchaseCost;

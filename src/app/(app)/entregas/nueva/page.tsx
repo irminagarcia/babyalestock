@@ -7,22 +7,22 @@ import { DeliveryForm } from "@/components/delivery-form";
 export default async function NewDeliveryPage() {
   await requireUser();
   const db = getDb();
-  const supplierRows = db
-    .select({ id: suppliers.id, name: suppliers.name })
-    .from(suppliers)
-    .where(eq(suppliers.isActive, true))
-    .all()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  const productRows = db
-    .select({
-      id: products.id,
-      name: products.name,
-      sku: products.sku,
-    })
-    .from(products)
-    .where(ne(products.status, "archived"))
-    .all()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const supplierRows = (
+    await db
+      .select({ id: suppliers.id, name: suppliers.name })
+      .from(suppliers)
+      .where(eq(suppliers.isActive, true))
+  ).sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const productRows = (
+    await db
+      .select({
+        id: products.id,
+        name: products.name,
+        sku: products.sku,
+      })
+      .from(products)
+      .where(ne(products.status, "archived"))
+  ).sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">

@@ -12,12 +12,12 @@ export default async function CuentaPage() {
   const isAdmin = user.username === "admin";
 
   const otherUsernames = isAdmin
-    ? getDb()
-        .select({ username: users.username })
-        .from(users)
-        .where(ne(users.username, "admin"))
-        .all()
-        .map((r) => r.username)
+    ? (
+        await getDb()
+          .select({ username: users.username })
+          .from(users)
+          .where(ne(users.username, "admin"))
+      ).map((r) => r.username)
     : [];
 
   return (

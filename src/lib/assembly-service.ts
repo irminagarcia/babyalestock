@@ -3,7 +3,8 @@
  */
 
 import { eq } from "drizzle-orm";
-import { getDb, getSqlite } from "@/db/client";
+import { getDb } from "@/db/client";
+import { one } from "@/db/query";
 import {
   giftBasketAssemblies,
   giftBasketAssemblyLines,
@@ -31,7 +32,7 @@ export type AssembleResult =
     }
   | { ok: false; error: string; preview?: AssemblyPreview };
 
-function loadComponents(basketId: number) {
+async function loadComponents(basketId: number) {
   const db = getDb();
   return db
     .select({
@@ -46,11 +47,10 @@ function loadComponents(basketId: number) {
     })
     .from(giftBasketComponents)
     .innerJoin(products, eq(giftBasketComponents.productId, products.id))
-    .where(eq(giftBasketComponents.basketId, basketId))
-    .all();
+    .where(eq(giftBasketComponents.basketId, basketId));
 }
 
-export function executeConfirmAssembly(input: {
+export async function executeConfirmAssembly(input: {
   basketId: number;
   quantity: number;
   assemblyMode: AssemblyMode;
@@ -58,19 +58,19 @@ export function executeConfirmAssembly(input: {
   notes?: string | null;
   idempotencyKey: string;
   assembledAt?: string;
-}): AssembleResult {
+}): Promise<AssembleResult> {
   const db = getDb();
-  const sqlite = getSqlite();
   const key = input.idempotencyKey.trim();
   if (!key) {
     return { ok: false, error: "Falta la clave de idempotencia." };
   }
 
-  const existing = db
-    .select()
-    .from(giftBasketAssemblies)
-    .where(eq(giftBasketAssemblies.idempotencyKey, key))
-    .get();
+  const existing = await one(
+    db
+      .select()
+      .from(giftBasketAssemblies)
+      .where(eq(giftBasketAssemblies.idempotencyKey, key)),
+  );
   if (existing) {
     const preview = buildAssemblyPreview({
       basketId: existing.basketId,
@@ -89,17 +89,15 @@ export function executeConfirmAssembly(input: {
     };
   }
 
-  const basket = db
-    .select()
-    .from(giftBaskets)
-    .where(eq(giftBaskets.id, input.basketId))
-    .get();
+  const basket = await one(
+    db.select().from(giftBaskets).where(eq(giftBaskets.id, input.basketId)),
+  );
   if (!basket) return { ok: false, error: "Receta no encontrada." };
   if (basket.status !== "active") {
     return { ok: false, error: "Solo se pueden montar recetas activas." };
   }
 
-  const comps = loadComponents(basket.id);
+  const comps = await loadComponents(basket.id);
   if (comps.length === 0) {
     return { ok: false, error: "La receta no tiene componentes." };
   }
@@ -128,27 +126,29 @@ export function executeConfirmAssembly(input: {
   const now = input.assembledAt || new Date().toISOString();
 
   try {
-    const assemblyId = sqlite.transaction(() => {
-      const created = db
-        .insert(giftBasketAssemblies)
-        .values({
-          basketId: basket.id,
-          quantity: input.quantity,
-          totalComponentCostSnapshot: preview.unitComponentCost,
-          sellingPriceSnapshot: preview.sellingPrice,
-          recipeNameSnapshot: basket.name,
-          assemblyMode: input.assemblyMode,
-          assembledAt: now,
-          assembledByUserId: input.userId,
-          notes: input.notes ?? null,
-          status: "recorded",
-          idempotencyKey: key,
-        })
-        .returning()
-        .get();
+    const assemblyId = await db.transaction(async (tx) => {
+      const created = await one(
+        tx
+          .insert(giftBasketAssemblies)
+          .values({
+            basketId: basket.id,
+            quantity: input.quantity,
+            totalComponentCostSnapshot: preview.unitComponentCost,
+            sellingPriceSnapshot: preview.sellingPrice,
+            recipeNameSnapshot: basket.name,
+            assemblyMode: input.assemblyMode,
+            assembledAt: now,
+            assembledByUserId: input.userId,
+            notes: input.notes ?? null,
+            status: "recorded",
+            idempotencyKey: key,
+          })
+          .returning(),
+      );
+      if (!created) throw new Error("No se pudo crear el montaje.");
 
       for (const line of frozenLines) {
-        const movement = createStockMovement({
+        const movement = await createStockMovement({
           productId: line.productId,
           type: "removed",
           quantity: line.quantity,
@@ -159,34 +159,33 @@ export function executeConfirmAssembly(input: {
           sourceType: "assembly",
           sourceId: created.id,
           skipTransaction: true,
+          tx,
         });
         if (!movement.ok) throw new Error(movement.error);
 
-        db.insert(giftBasketAssemblyLines)
-          .values({
-            assemblyId: created.id,
-            productId: line.productId,
-            quantity: line.quantity,
-            recipeQtyPerUnit: line.recipeQtyPerUnit,
-            unitLandedCostSnapshot: line.unitLandedCostSnapshot,
-            lineCostSnapshot: line.lineCostSnapshot,
-            stockMovementId: movement.movementId,
-          })
-          .run();
+        await tx.insert(giftBasketAssemblyLines).values({
+          assemblyId: created.id,
+          productId: line.productId,
+          quantity: line.quantity,
+          recipeQtyPerUnit: line.recipeQtyPerUnit,
+          unitLandedCostSnapshot: line.unitLandedCostSnapshot,
+          lineCostSnapshot: line.lineCostSnapshot,
+          stockMovementId: movement.movementId,
+        });
       }
 
       if (input.assemblyMode === "preassembled") {
-        db.update(giftBaskets)
+        await tx
+          .update(giftBaskets)
           .set({
             finishedStock: basket.finishedStock + input.quantity,
             updatedAt: now,
           })
-          .where(eq(giftBaskets.id, basket.id))
-          .run();
+          .where(eq(giftBaskets.id, basket.id));
       }
 
       return created.id;
-    })();
+    });
 
     return {
       ok: true,
@@ -201,11 +200,12 @@ export function executeConfirmAssembly(input: {
     const message =
       err instanceof Error ? err.message : "No se pudo confirmar el montaje.";
     if (message.includes("UNIQUE") || message.includes("unique")) {
-      const again = db
-        .select()
-        .from(giftBasketAssemblies)
-        .where(eq(giftBasketAssemblies.idempotencyKey, key))
-        .get();
+      const again = await one(
+        db
+          .select()
+          .from(giftBasketAssemblies)
+          .where(eq(giftBasketAssemblies.idempotencyKey, key)),
+      );
       if (again) {
         return {
           ok: true,
@@ -220,18 +220,18 @@ export function executeConfirmAssembly(input: {
   }
 }
 
-export function executeCancelAssembly(input: {
+export async function executeCancelAssembly(input: {
   assemblyId: number;
   userId: number;
-}): AssembleResult {
+}): Promise<AssembleResult> {
   const db = getDb();
-  const sqlite = getSqlite();
 
-  const assembly = db
-    .select()
-    .from(giftBasketAssemblies)
-    .where(eq(giftBasketAssemblies.id, input.assemblyId))
-    .get();
+  const assembly = await one(
+    db
+      .select()
+      .from(giftBasketAssemblies)
+      .where(eq(giftBasketAssemblies.id, input.assemblyId)),
+  );
 
   if (!assembly) return { ok: false, error: "Montaje no encontrado." };
   if (assembly.status === "cancelled") {
@@ -254,17 +254,14 @@ export function executeCancelAssembly(input: {
     return { ok: false, error: "Solo se pueden anular montajes registrados." };
   }
 
-  const lines = db
+  const lines = await db
     .select()
     .from(giftBasketAssemblyLines)
-    .where(eq(giftBasketAssemblyLines.assemblyId, input.assemblyId))
-    .all();
+    .where(eq(giftBasketAssemblyLines.assemblyId, input.assemblyId));
 
-  const basket = db
-    .select()
-    .from(giftBaskets)
-    .where(eq(giftBaskets.id, assembly.basketId))
-    .get();
+  const basket = await one(
+    db.select().from(giftBaskets).where(eq(giftBaskets.id, assembly.basketId)),
+  );
 
   const now = new Date().toISOString();
   const name =
@@ -273,9 +270,9 @@ export function executeCancelAssembly(input: {
     `cesta #${assembly.basketId}`;
 
   try {
-    sqlite.transaction(() => {
+    await db.transaction(async (tx) => {
       for (const line of lines) {
-        const movement = createStockMovement({
+        const movement = await createStockMovement({
           productId: line.productId,
           type: "received",
           quantity: line.quantity,
@@ -289,27 +286,28 @@ export function executeCancelAssembly(input: {
           sourceType: "assembly_cancel",
           sourceId: input.assemblyId,
           skipTransaction: true,
+          tx,
         });
         if (!movement.ok) throw new Error(movement.error);
       }
 
       if (assembly.assemblyMode === "preassembled" && basket) {
         const next = Math.max(0, basket.finishedStock - assembly.quantity);
-        db.update(giftBaskets)
+        await tx
+          .update(giftBaskets)
           .set({ finishedStock: next, updatedAt: now })
-          .where(eq(giftBaskets.id, basket.id))
-          .run();
+          .where(eq(giftBaskets.id, basket.id));
       }
 
-      db.update(giftBasketAssemblies)
+      await tx
+        .update(giftBasketAssemblies)
         .set({
           status: "cancelled",
           cancelledAt: now,
           cancelledByUserId: input.userId,
         })
-        .where(eq(giftBasketAssemblies.id, input.assemblyId))
-        .run();
-    })();
+        .where(eq(giftBasketAssemblies.id, input.assemblyId));
+    });
 
     return {
       ok: true,

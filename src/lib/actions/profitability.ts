@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { and, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
+import { one } from "@/db/query";
 import {
   giftBasketAssemblies,
   giftBasketComponents,
@@ -32,64 +33,59 @@ export async function getProfitabilityOverview(opts: {
   const db = getDb();
   const statusFilter = opts.basketStatus || "active";
 
-  const baskets = db
-    .select()
-    .from(giftBaskets)
-    .all()
+  const baskets = (await db.select().from(giftBaskets))
     .filter((b) =>
       statusFilter === "all" ? true : b.status === statusFilter,
     )
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
 
-  const basketRows: BasketProfitRow[] = baskets.map((b) => {
-    const comps = db
-      .select({
-        quantity: giftBasketComponents.quantity,
-        landedCost: products.landedCost,
-        purchaseCost: products.purchaseCost,
-      })
-      .from(giftBasketComponents)
-      .innerJoin(products, eq(giftBasketComponents.productId, products.id))
-      .where(eq(giftBasketComponents.basketId, b.id))
-      .all();
+  const basketRows: BasketProfitRow[] = await Promise.all(
+    baskets.map(async (b) => {
+      const comps = await db
+        .select({
+          quantity: giftBasketComponents.quantity,
+          landedCost: products.landedCost,
+          purchaseCost: products.purchaseCost,
+        })
+        .from(giftBasketComponents)
+        .innerJoin(products, eq(giftBasketComponents.productId, products.id))
+        .where(eq(giftBasketComponents.basketId, b.id));
 
-    const estimate = estimateBasketCost(
-      comps.map((c, i) => {
-        const { unit, missing } = resolveUnitCost(c.landedCost, c.purchaseCost);
-        return {
-          key: String(i),
-          productId: 0,
-          quantity: c.quantity,
-          unitLandedCost: missing ? null : unit,
-          missingCost: missing,
-        };
-      }),
-      b.sellingPrice,
-    );
+      const estimate = estimateBasketCost(
+        comps.map((c, i) => {
+          const { unit, missing } = resolveUnitCost(c.landedCost, c.purchaseCost);
+          return {
+            key: String(i),
+            productId: 0,
+            quantity: c.quantity,
+            unitLandedCost: missing ? null : unit,
+            missingCost: missing,
+          };
+        }),
+        b.sellingPrice,
+      );
 
-    return {
-      basketId: b.id,
-      name: b.name,
-      sku: b.sku,
-      status: b.status,
-      componentCount: comps.length,
-      estimatedCost: estimate.totalComponentCost,
-      sellingPrice: b.sellingPrice,
-      estimatedProfit: estimate.estimatedProfit,
-      estimatedMarginPct: estimate.estimatedMarginPct,
-      missingCostCount: estimate.missingCostCount,
-      nature: "estimado" as const,
-    };
-  });
+      return {
+        basketId: b.id,
+        name: b.name,
+        sku: b.sku,
+        status: b.status,
+        componentCount: comps.length,
+        estimatedCost: estimate.totalComponentCost,
+        sellingPrice: b.sellingPrice,
+        estimatedProfit: estimate.estimatedProfit,
+        estimatedMarginPct: estimate.estimatedMarginPct,
+        missingCostCount: estimate.missingCostCount,
+        nature: "estimado" as const,
+      };
+    }),
+  );
 
   const portfolio = sumBasketPortfolio(basketRows);
 
-  const productList = db
-    .select()
-    .from(products)
-    .where(ne(products.status, "archived"))
-    .all()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const productList = (
+    await db.select().from(products).where(ne(products.status, "archived"))
+  ).sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   const productRows: ProductProfitRow[] = productList.map((p) => {
     const unitCost = resolveUnitCost(p.landedCost, p.purchaseCost);
@@ -129,7 +125,7 @@ export async function getProfitabilityOverview(opts: {
   if (fromIso) assemblyConditions.push(gte(giftBasketAssemblies.assembledAt, fromIso));
   if (toIso) assemblyConditions.push(lte(giftBasketAssemblies.assembledAt, toIso));
 
-  const assemblies = db
+  const assemblies = await db
     .select({
       id: giftBasketAssemblies.id,
       basketId: giftBasketAssemblies.basketId,
@@ -143,8 +139,7 @@ export async function getProfitabilityOverview(opts: {
     .from(giftBasketAssemblies)
     .innerJoin(giftBaskets, eq(giftBasketAssemblies.basketId, giftBaskets.id))
     .where(and(...assemblyConditions))
-    .orderBy(desc(giftBasketAssemblies.assembledAt))
-    .all();
+    .orderBy(desc(giftBasketAssemblies.assembledAt));
 
   const recordedRows: RecordedBasketSaleRow[] = assemblies.map((a) => {
     const cost = (a.totalComponentCostSnapshot ?? 0) * a.quantity;
@@ -169,14 +164,15 @@ export async function getProfitabilityOverview(opts: {
   if (fromIso) saleConditions.push(gte(stockMovements.occurredAt, fromIso));
   if (toIso) saleConditions.push(lte(stockMovements.occurredAt, toIso));
 
-  const productSales = db
-    .select({
-      count: sql<number>`count(*)`,
-      units: sql<number>`coalesce(sum(${stockMovements.quantity}), 0)`,
-    })
-    .from(stockMovements)
-    .where(and(...saleConditions))
-    .get();
+  const productSales = await one(
+    db
+      .select({
+        count: sql<number>`count(*)`,
+        units: sql<number>`coalesce(sum(${stockMovements.quantity}), 0)`,
+      })
+      .from(stockMovements)
+      .where(and(...saleConditions)),
+  );
 
   return {
     basketRows,

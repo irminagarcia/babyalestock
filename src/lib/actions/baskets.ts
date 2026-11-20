@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { desc, eq, ne } from "drizzle-orm";
-import { getDb, getSqlite } from "@/db/client";
+import { getDb } from "@/db/client";
+import { exec, one } from "@/db/query";
 import {
   giftBasketComponents,
   giftBaskets,
@@ -81,31 +82,27 @@ export async function saveBasketRecipe(
   }
 
   const db = getDb();
-  const sqlite = getSqlite();
   const now = new Date().toISOString();
 
   if (sku) {
-    const clash = db
-      .select()
-      .from(giftBaskets)
-      .where(eq(giftBaskets.sku, sku))
-      .get();
+    const clash = await one(
+      db.select().from(giftBaskets).where(eq(giftBaskets.sku, sku)),
+    );
     if (clash && clash.id !== id) {
       return { error: "Ya existe una cesta con ese SKU." };
     }
   }
 
   try {
-    const basketId = sqlite.transaction(() => {
+    const basketId = await db.transaction(async (tx) => {
       if (id) {
-        const existing = db
-          .select()
-          .from(giftBaskets)
-          .where(eq(giftBaskets.id, id))
-          .get();
+        const existing = await one(
+          tx.select().from(giftBaskets).where(eq(giftBaskets.id, id)),
+        );
         if (!existing) throw new Error("Receta no encontrada.");
 
-        db.update(giftBaskets)
+        await tx
+          .update(giftBaskets)
           .set({
             name,
             sku,
@@ -115,54 +112,51 @@ export async function saveBasketRecipe(
             status,
             updatedAt: now,
           })
-          .where(eq(giftBaskets.id, id))
-          .run();
+          .where(eq(giftBaskets.id, id));
 
-        db.delete(giftBasketComponents)
-          .where(eq(giftBasketComponents.basketId, id))
-          .run();
+        await tx
+          .delete(giftBasketComponents)
+          .where(eq(giftBasketComponents.basketId, id));
 
-        components.forEach((c, sortOrder) => {
-          db.insert(giftBasketComponents)
-            .values({
-              basketId: id,
-              productId: c.productId,
-              quantity: c.quantity,
-              notes: c.notes,
-              sortOrder,
-            })
-            .run();
-        });
-        return id;
-      }
-
-      const created = db
-        .insert(giftBaskets)
-        .values({
-          name,
-          sku,
-          description,
-          notes,
-          sellingPrice,
-          status,
-          assemblyMode: "mto",
-        })
-        .returning()
-        .get();
-
-      components.forEach((c, sortOrder) => {
-        db.insert(giftBasketComponents)
-          .values({
-            basketId: created.id,
+        for (const [sortOrder, c] of components.entries()) {
+          await tx.insert(giftBasketComponents).values({
+            basketId: id,
             productId: c.productId,
             quantity: c.quantity,
             notes: c.notes,
             sortOrder,
+          });
+        }
+        return id;
+      }
+
+      const created = await one(
+        tx
+          .insert(giftBaskets)
+          .values({
+            name,
+            sku,
+            description,
+            notes,
+            sellingPrice,
+            status,
+            assemblyMode: "mto",
           })
-          .run();
-      });
+          .returning(),
+      );
+      if (!created) throw new Error("No se pudo crear la receta.");
+
+      for (const [sortOrder, c] of components.entries()) {
+        await tx.insert(giftBasketComponents).values({
+          basketId: created.id,
+          productId: c.productId,
+          quantity: c.quantity,
+          notes: c.notes,
+          sortOrder,
+        });
+      }
       return created.id;
-    })();
+    });
 
     revalidatePath("/cestas");
     revalidatePath(`/cestas/${basketId}`);
@@ -183,11 +177,12 @@ export async function setBasketStatus(basketId: number, status: string) {
   if (status !== "active" && status !== "inactive" && status !== "draft") {
     return { error: "Estado no válido." };
   }
-  getDb()
-    .update(giftBaskets)
-    .set({ status, updatedAt: new Date().toISOString() })
-    .where(eq(giftBaskets.id, basketId))
-    .run();
+  await exec(
+    getDb()
+      .update(giftBaskets)
+      .set({ status, updatedAt: new Date().toISOString() })
+      .where(eq(giftBaskets.id, basketId)),
+  );
   revalidatePath("/cestas");
   revalidatePath(`/cestas/${basketId}`);
   return { ok: true as const };
@@ -196,8 +191,9 @@ export async function setBasketStatus(basketId: number, status: string) {
 export async function deleteBasketRecipe(basketId: number) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  // Safe: no assemblies yet; deleting recipe does not touch stock movements
-  getDb().delete(giftBaskets).where(eq(giftBaskets.id, basketId)).run();
+  await exec(
+    getDb().delete(giftBaskets).where(eq(giftBaskets.id, basketId)),
+  );
   revalidatePath("/cestas");
   return { ok: true as const };
 }
@@ -206,76 +202,78 @@ export async function listBasketRecipes() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const db = getDb();
-  const baskets = db
+  const baskets = await db
     .select()
     .from(giftBaskets)
-    .orderBy(desc(giftBaskets.updatedAt))
-    .all();
+    .orderBy(desc(giftBaskets.updatedAt));
 
-  return baskets.map((b) => {
-    const comps = db
-      .select({
-        quantity: giftBasketComponents.quantity,
-        landedCost: products.landedCost,
-        purchaseCost: products.purchaseCost,
-      })
-      .from(giftBasketComponents)
-      .innerJoin(products, eq(giftBasketComponents.productId, products.id))
-      .where(eq(giftBasketComponents.basketId, b.id))
-      .all();
+  return Promise.all(
+    baskets.map(async (b) => {
+      const comps = await db
+        .select({
+          quantity: giftBasketComponents.quantity,
+          landedCost: products.landedCost,
+          purchaseCost: products.purchaseCost,
+        })
+        .from(giftBasketComponents)
+        .innerJoin(products, eq(giftBasketComponents.productId, products.id))
+        .where(eq(giftBasketComponents.basketId, b.id));
 
-    const estimate = estimateBasketCost(
-      comps.map((c, i) => {
-        const { unit, missing } = resolveUnitCost(c.landedCost, c.purchaseCost);
-        return {
-          key: String(i),
-          productId: 0,
-          quantity: c.quantity,
-          unitLandedCost: missing ? null : unit,
-          missingCost: missing,
-        };
-      }),
-      b.sellingPrice,
-    );
+      const estimate = estimateBasketCost(
+        comps.map((c, i) => {
+          const { unit, missing } = resolveUnitCost(c.landedCost, c.purchaseCost);
+          return {
+            key: String(i),
+            productId: 0,
+            quantity: c.quantity,
+            unitLandedCost: missing ? null : unit,
+            missingCost: missing,
+          };
+        }),
+        b.sellingPrice,
+      );
 
-    return {
-      ...b,
-      componentCount: comps.length,
-      totalComponentCost: estimate.totalComponentCost,
-      estimatedProfit: estimate.estimatedProfit,
-      estimatedMarginPct: estimate.estimatedMarginPct,
-      missingCostCount: estimate.missingCostCount,
-    };
-  });
+      return {
+        ...b,
+        componentCount: comps.length,
+        totalComponentCost: estimate.totalComponentCost,
+        estimatedProfit: estimate.estimatedProfit,
+        estimatedMarginPct: estimate.estimatedMarginPct,
+        missingCostCount: estimate.missingCostCount,
+      };
+    }),
+  );
 }
 
 export async function getBasketDetail(id: number) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const db = getDb();
-  const basket = db.select().from(giftBaskets).where(eq(giftBaskets.id, id)).get();
+  const basket = await one(
+    db.select().from(giftBaskets).where(eq(giftBaskets.id, id)),
+  );
   if (!basket) return null;
 
-  const components = db
-    .select({
-      id: giftBasketComponents.id,
-      productId: giftBasketComponents.productId,
-      quantity: giftBasketComponents.quantity,
-      notes: giftBasketComponents.notes,
-      sortOrder: giftBasketComponents.sortOrder,
-      productName: products.name,
-      productSku: products.sku,
-      usage: products.usage,
-      landedCost: products.landedCost,
-      purchaseCost: products.purchaseCost,
-      currentStock: products.currentStock,
-      status: products.status,
-    })
-    .from(giftBasketComponents)
-    .innerJoin(products, eq(giftBasketComponents.productId, products.id))
-    .where(eq(giftBasketComponents.basketId, id))
-    .all()
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const components = (
+    await db
+      .select({
+        id: giftBasketComponents.id,
+        productId: giftBasketComponents.productId,
+        quantity: giftBasketComponents.quantity,
+        notes: giftBasketComponents.notes,
+        sortOrder: giftBasketComponents.sortOrder,
+        productName: products.name,
+        productSku: products.sku,
+        usage: products.usage,
+        landedCost: products.landedCost,
+        purchaseCost: products.purchaseCost,
+        currentStock: products.currentStock,
+        status: products.status,
+      })
+      .from(giftBasketComponents)
+      .innerJoin(products, eq(giftBasketComponents.productId, products.id))
+      .where(eq(giftBasketComponents.basketId, id))
+  ).sort((a, b) => a.sortOrder - b.sortOrder);
 
   const estimate = estimateBasketCost(
     components.map((c) => {
@@ -300,7 +298,7 @@ export async function listComponentProductOptions() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const db = getDb();
-  return db
+  return (await db
     .select({
       id: products.id,
       name: products.name,
@@ -311,13 +309,11 @@ export async function listComponentProductOptions() {
       currentStock: products.currentStock,
     })
     .from(products)
-    .where(ne(products.status, "archived"))
-    .all()
-    .sort((a, b) => {
-      const rank = (u: string) =>
-        u === "gift_component" || u === "both" ? 0 : 1;
-      const d = rank(a.usage) - rank(b.usage);
-      if (d !== 0) return d;
-      return a.name.localeCompare(b.name, "es");
-    });
+    .where(ne(products.status, "archived"))).sort((a, b) => {
+    const rank = (u: string) =>
+      u === "gift_component" || u === "both" ? 0 : 1;
+    const d = rank(a.usage) - rank(b.usage);
+    if (d !== 0) return d;
+    return a.name.localeCompare(b.name, "es");
+  });
 }

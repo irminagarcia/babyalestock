@@ -1,31 +1,60 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { createClient, type Client } from "@libsql/client";
+import { drizzle as drizzleLibsql } from "drizzle-orm/libsql";
+import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import { ensureDataDirs, getDbPath } from "@/lib/paths";
-import * as schema from "./schema";
+import { isPostgres, getDatabaseUrl } from "./dialect";
+import * as sqliteSchema from "./schema.sqlite";
+import * as pgSchema from "./schema.pg";
+
+type LibsqlDb = ReturnType<typeof drizzleLibsql<typeof sqliteSchema>>;
+type PgDb = ReturnType<typeof drizzlePg<typeof pgSchema>>;
 
 /**
- * `better-sqlite3` is npm-aliased to `libsql` (see package.json) so install
- * uses NAPI platform prebuilds — no Python / VS Build Tools / node-gyp on Windows.
- * API stays better-sqlite3-compatible; Drizzle + schema/migrations unchanged.
+ * App-facing Drizzle handle. Runtime may be libsql or Postgres; tables are
+ * exported from `@/db/schema` with SQLite-shaped types for a single TS surface.
  */
-let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
-let sqliteInstance: Database.Database | null = null;
+export type Db = LibsqlDb;
+export type Tx = Parameters<Parameters<LibsqlDb["transaction"]>[0]>[0];
 
-export function getSqlite(): Database.Database {
-  if (!sqliteInstance) {
-    ensureDataDirs();
-    sqliteInstance = new Database(getDbPath());
-    sqliteInstance.pragma("journal_mode = WAL");
-    sqliteInstance.pragma("foreign_keys = ON");
-  }
-  return sqliteInstance;
+let dbInstance: Db | null = null;
+let libsqlClient: Client | null = null;
+let pgPool: pg.Pool | null = null;
+
+function createSqliteDb(): LibsqlDb {
+  ensureDataDirs();
+  libsqlClient = createClient({ url: `file:${getDbPath()}` });
+  return drizzleLibsql(libsqlClient, { schema: sqliteSchema });
 }
 
-export function getDb() {
+function createPgDb(): PgDb {
+  const connectionString = getDatabaseUrl();
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required for Postgres mode");
+  }
+  pgPool = new pg.Pool({ connectionString, max: 5 });
+  return drizzlePg(pgPool, { schema: pgSchema });
+}
+
+export function getDb(): Db {
   if (!dbInstance) {
-    dbInstance = drizzle(getSqlite(), { schema });
+    dbInstance = (isPostgres() ? createPgDb() : createSqliteDb()) as Db;
   }
   return dbInstance;
 }
 
-export type Db = ReturnType<typeof getDb>;
+export function usingPostgres(): boolean {
+  return isPostgres();
+}
+
+export async function closeDb(): Promise<void> {
+  dbInstance = null;
+  if (libsqlClient) {
+    libsqlClient.close();
+    libsqlClient = null;
+  }
+  if (pgPool) {
+    await pgPool.end();
+    pgPool = null;
+  }
+}
