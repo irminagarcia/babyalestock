@@ -7,9 +7,13 @@
   },
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 43123",
-    "build": "next build && node scripts/migrate.mjs && node scripts/seed-hosted.mjs",
+    "build": "next build && node scripts/migrate.mjs && node scripts/seed-hosted.mjs && opennextjs-cloudflare build --skipNextBuild",
+    "build:next": "next build",
     "start": "next start --hostname 0.0.0.0 --port 43123",
     "lint": "next lint",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
@@ -25,6 +29,8 @@
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
+    "@neondatabase/serverless": "^1.2.1",
+    "@opennextjs/cloudflare": "^1.20.18",
     "@radix-ui/react-alert-dialog": "^1.2.1",
     "@radix-ui/react-checkbox": "^1.4.1",
     "@radix-ui/react-dialog": "^1.3.1",
@@ -68,6 +74,7 @@
     "postcss": "^8.5.31",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "wrangler": "^4.165.0"
   }
 }

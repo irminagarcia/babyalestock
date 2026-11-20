@@ -89,17 +89,17 @@ También al sembrar (antes del primer uso):
 BABYALESTOCK_ADMIN_PASSWORD='***' BABYALESTOCK_SHOP_PASSWORD='***' npm run db:seed
 ```
 
-## Hosting cloud (Cloudflare + Postgres)
+## Hosting cloud (Cloudflare Workers + Neon)
 
 Para usar la app desde internet sin dejar un PC encendido:
 
-1. Postgres gratis (p. ej. [Neon](https://neon.tech)) → variable **`DATABASE_URL`**
-2. Publicar en **Cloudflare Pages** (cuenta existente; subdominio gratis `*.pages.dev`, sin dominio de pago)
+1. Postgres gratis ([Neon](https://neon.tech)) → secreto **`DATABASE_URL`**
+2. Cloudflare Workers (UI “Set up your application”): build `npm run build`, deploy `npx wrangler deploy`
 3. Login de la app: `admin` / `tienda` (igual que en local)
 
-Sin `DATABASE_URL`, el modo local sigue usando **SQLite** (`BABYALESTOCK_DATA_DIR` / `~/.babyalestock`). No hay secretos en el repositorio.
+`npm run build` genera el Worker OpenNext (`.open-next/`). Sin `DATABASE_URL`, el modo local sigue usando **SQLite**. No hay secretos en el repositorio.
 
-Ver guía operativa en el Project Cursor: `internal/hosted-deploy.md`.
+Ver guía: Project Cursor `internal/hosted-deploy.md`.
 
 ## Directorio de datos (importante)
 

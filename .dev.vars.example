@@ -1,0 +1,2 @@
+NEXTJS_ENV=development
+# DATABASE_URL=postgresql://…  # Neon URI for local `wrangler` / preview only — never commit real secrets
