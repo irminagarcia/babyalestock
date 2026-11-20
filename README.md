@@ -6,8 +6,10 @@ En pantalla el nombre de marca es **Baby Ale**. El identificador técnico del pr
 
 ## Requisitos
 
-- Node.js 20+ (recomendado 22)
-- npm
+- **Node.js LTS 20 o 22** (recomendado **22**). No use la versión «Current» (p. ej. 26): en Windows falla la instalación.
+- npm (viene con Node)
+
+Descarga: [https://nodejs.org](https://nodejs.org) → elija el botón verde **LTS** (no «Current»).
 
 ## Puesta en marcha (PC de la tienda)
 
@@ -17,6 +19,26 @@ cd babyalestock
 npm install
 npm run setup          # migraciones + usuarios semilla (solo la primera vez)
 ```
+
+### Windows — si `npm install` falló antes
+
+1. Desinstale Node «Current» (26.x) e instale **Node.js 22 LTS** desde [nodejs.org](https://nodejs.org).
+2. Cierre y vuelva a abrir PowerShell / Símbolo del sistema.
+3. Compruebe: `node -v` debe mostrar `v22.…` (no `v26.…`).
+4. Reinstalación limpia:
+
+```powershell
+cd $HOME\babyalestock
+git pull
+Remove-Item -Recurse -Force node_modules -ErrorAction SilentlyContinue
+Remove-Item -Force package-lock.json -ErrorAction SilentlyContinue
+npm install
+npm run setup
+npm run build
+npm start
+```
+
+La base de datos usa **libsql** (binarios precompilados). No hace falta Python ni herramientas de Visual Studio.
 
 Desarrollo / prueba rápida:
 
@@ -147,4 +169,4 @@ npm run test:landed-cost   # ejemplos numéricos de la fórmula
 
 ## Stack
 
-Next.js (App Router) · TypeScript · Tailwind · shadcn/ui · SQLite · Drizzle ORM
+Next.js (App Router) · TypeScript · Tailwind · shadcn/ui · SQLite (libsql) · Drizzle ORM
