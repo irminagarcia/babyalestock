@@ -4,8 +4,13 @@ import { categories, subcategories, suppliers } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { ProductForm } from "@/components/product-form";
 
-export default async function NewProductPage() {
+export default async function NewProductPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   await requireUser();
+  const params = await searchParams;
   const db = getDb();
   const cats = await db
     .select()
@@ -31,6 +36,8 @@ export default async function NewProductPage() {
       </div>
       <div className="rounded-xl border bg-card p-6">
         <ProductForm
+          returnTo="/productos/nuevo"
+          initialError={params.error}
           categories={cats.map((c) => ({ id: c.id, name: c.name }))}
           subcategories={subs.map((s) => ({
             id: s.id,

@@ -1,13 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { upsertProduct } from "@/lib/actions/products";
 
 type Option = { id: number; name: string };
 type SubOption = { id: number; name: string; categoryId: number };
@@ -40,14 +37,18 @@ export function ProductForm({
   categories,
   subcategories,
   suppliers,
+  returnTo,
+  initialError,
 }: {
   initial?: ProductFormValues;
   categories: Option[];
   subcategories: SubOption[];
   suppliers: Option[];
+  /** Path to return to on validation error (Workers 303). */
+  returnTo: string;
+  initialError?: string;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [categoryId, setCategoryId] = useState(
     initial?.categoryId ? String(initial.categoryId) : "",
   );
@@ -60,24 +61,29 @@ export function ProductForm({
     [subcategories, categoryId],
   );
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    startTransition(async () => {
-      const result = await upsertProduct(formData);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(initial?.id ? "Producto actualizado." : "Producto creado.");
-      router.push(`/productos/${result.id}`);
-      router.refresh();
-    });
-  }
+  const cancelHref = initial?.id
+    ? `/productos/${initial.id}`
+    : "/productos";
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
+    <form
+      action="/api/products/upsert"
+      method="post"
+      encType="multipart/form-data"
+      className="space-y-6"
+      onSubmit={(e) => {
+        if (!e.currentTarget.checkValidity()) return;
+        setPending(true);
+      }}
+    >
+      <input type="hidden" name="returnTo" value={returnTo} />
       {initial?.id && <input type="hidden" name="id" value={initial.id} />}
+
+      {initialError && (
+        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {initialError}
+        </p>
+      )}
 
       <section className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2 md:col-span-2">
@@ -282,13 +288,8 @@ export function ProductForm({
         <Button type="submit" disabled={pending}>
           {pending ? "Guardando…" : "Guardar"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-          disabled={pending}
-        >
-          Cancelar
+        <Button type="button" variant="outline" disabled={pending} asChild>
+          <a href={cancelHref}>Cancelar</a>
         </Button>
       </div>
     </form>
