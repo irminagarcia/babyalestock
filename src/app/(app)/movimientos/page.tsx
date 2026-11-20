@@ -23,17 +23,17 @@ export default async function MovementsPage({
   await requireUser();
   const params = await searchParams;
   const db = getDb();
-  const productOptions = db
-    .select({
-      id: products.id,
-      name: products.name,
-      sku: products.sku,
-      currentStock: products.currentStock,
-    })
-    .from(products)
-    .where(ne(products.status, "archived"))
-    .all()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const productOptions = (
+    await db
+      .select({
+        id: products.id,
+        name: products.name,
+        sku: products.sku,
+        currentStock: products.currentStock,
+      })
+      .from(products)
+      .where(ne(products.status, "archived"))
+  ).sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   const history = await listMovements(150);
 

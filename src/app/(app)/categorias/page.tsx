@@ -7,12 +7,10 @@ import { Badge } from "@/components/ui/badge";
 export default async function CategoriesPage() {
   await requireUser();
   const db = getDb();
-  const cats = db
-    .select()
-    .from(categories)
-    .all()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
-  const subs = db.select().from(subcategories).all();
+  const cats = (await db.select().from(categories)).sort((a, b) =>
+    a.name.localeCompare(b.name, "es"),
+  );
+  const subs = await db.select().from(subcategories);
 
   return (
     <div className="space-y-8">

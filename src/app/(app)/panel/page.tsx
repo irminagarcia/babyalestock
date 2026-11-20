@@ -29,11 +29,10 @@ export default async function PanelPage() {
   await requireUser();
   const db = getDb();
 
-  const activeProducts = db
+  const activeProducts = await db
     .select()
     .from(products)
-    .where(ne(products.status, "archived"))
-    .all();
+    .where(ne(products.status, "archived"));
 
   const totalProducts = activeProducts.length;
   const totalUnits = activeProducts.reduce((sum, p) => sum + p.currentStock, 0);
@@ -41,7 +40,7 @@ export default async function PanelPage() {
     .filter((p) => p.currentStock <= p.minStock)
     .sort((a, b) => a.currentStock - b.currentStock);
 
-  const recent = db
+  const recent = await db
     .select({
       id: stockMovements.id,
       type: stockMovements.type,
@@ -52,8 +51,7 @@ export default async function PanelPage() {
     .from(stockMovements)
     .innerJoin(products, eq(stockMovements.productId, products.id))
     .orderBy(desc(stockMovements.occurredAt))
-    .limit(8)
-    .all();
+    .limit(8);
 
   const stats = [
     {

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
+import { exec, one } from "@/db/query";
 import {
   categories,
   products,
@@ -30,45 +31,41 @@ function numOrNull(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function ensureCategory(name: string | null) {
+async function ensureCategory(name: string | null) {
   if (!name) return null;
   const db = getDb();
-  const existing = db
-    .select()
-    .from(categories)
-    .where(eq(categories.name, name))
-    .get();
+  const existing = await one(
+    db.select().from(categories).where(eq(categories.name, name)),
+  );
   if (existing) return existing.id;
-  return db.insert(categories).values({ name }).returning().get().id;
+  const created = await one(db.insert(categories).values({ name }).returning());
+  return created!.id;
 }
 
-function ensureSubcategory(categoryId: number | null, name: string | null) {
+async function ensureSubcategory(categoryId: number | null, name: string | null) {
   if (!categoryId || !name) return null;
   const db = getDb();
-  const existing = db
+  const existingRows = await db
     .select()
     .from(subcategories)
-    .where(eq(subcategories.categoryId, categoryId))
-    .all()
-    .find((s) => s.name === name);
+    .where(eq(subcategories.categoryId, categoryId));
+  const existing = existingRows.find((s) => s.name === name);
   if (existing) return existing.id;
-  return db
-    .insert(subcategories)
-    .values({ categoryId, name })
-    .returning()
-    .get().id;
+  const created = await one(
+    db.insert(subcategories).values({ categoryId, name }).returning(),
+  );
+  return created!.id;
 }
 
-function ensureSupplier(name: string | null) {
+async function ensureSupplier(name: string | null) {
   if (!name) return null;
   const db = getDb();
-  const existing = db
-    .select()
-    .from(suppliers)
-    .where(eq(suppliers.name, name))
-    .get();
+  const existing = await one(
+    db.select().from(suppliers).where(eq(suppliers.name, name)),
+  );
   if (existing) return existing.id;
-  return db.insert(suppliers).values({ name }).returning().get().id;
+  const created = await one(db.insert(suppliers).values({ name }).returning());
+  return created!.id;
 }
 
 export async function importProductsCsv(formData: FormData) {
@@ -95,8 +92,6 @@ export async function importProductsCsv(formData: FormData) {
     };
   }
 
-  // Optional: when matching by SKU, also set existencias (for bulk inventariar).
-  // Default remains "ficha only" so day-to-day CSV updates do not wipe stock.
   const updateStockOnMatch =
     formData.get("updateStockOnMatch") === "1" ||
     formData.get("updateStockOnMatch") === "on" ||
@@ -118,9 +113,9 @@ export async function importProductsCsv(formData: FormData) {
       const categoryName = cell(row, map, "categoria") || null;
       const subcategoryName = cell(row, map, "subcategoria") || null;
       const supplierName = cell(row, map, "proveedor") || null;
-      const categoryId = ensureCategory(categoryName);
-      const subcategoryId = ensureSubcategory(categoryId, subcategoryName);
-      const supplierId = ensureSupplier(supplierName);
+      const categoryId = await ensureCategory(categoryName);
+      const subcategoryId = await ensureSubcategory(categoryId, subcategoryName);
+      const supplierId = await ensureSupplier(supplierName);
       const sku = cell(row, map, "sku") || null;
       const usage = (cell(row, map, "uso") || "individual") as ProductUsage;
       const status = (cell(row, map, "estado") || "active") as ProductStatus;
@@ -149,31 +144,28 @@ export async function importProductsCsv(formData: FormData) {
       const stock = numOrNull(cell(row, map, "existencias"));
 
       if (sku) {
-        const existing = db
-          .select()
-          .from(products)
-          .where(eq(products.sku, sku))
-          .get();
+        const existing = await one(
+          db.select().from(products).where(eq(products.sku, sku)),
+        );
         if (existing) {
           const patch =
             updateStockOnMatch && stock !== null
               ? { ...values, currentStock: Math.max(0, stock) }
               : values;
-          db.update(products)
-            .set(patch)
-            .where(eq(products.id, existing.id))
-            .run();
+          await exec(
+            db.update(products).set(patch).where(eq(products.id, existing.id)),
+          );
           updated++;
           continue;
         }
       }
 
-      db.insert(products)
-        .values({
+      await exec(
+        db.insert(products).values({
           ...values,
           currentStock: Math.max(0, stock ?? 0),
-        })
-        .run();
+        }),
+      );
       created++;
     } catch (err) {
       errors.push(

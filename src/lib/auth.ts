@@ -3,6 +3,7 @@ import { eq, and, gt } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/db/client";
+import { one } from "@/db/query";
 import { sessions, users } from "@/db/schema";
 import { runMigrations } from "@/db/migrate";
 
@@ -15,8 +16,18 @@ export type SessionUser = {
   displayName: string;
 };
 
-function ensureDb() {
-  runMigrations();
+async function ensureDb() {
+  await runMigrations();
+}
+
+function useSecureCookies(): boolean {
+  if (process.env.BABYALESTOCK_SECURE_COOKIE === "1") return true;
+  if (process.env.BABYALESTOCK_SECURE_COOKIE === "0") return false;
+  // Hosted HTTPS (Cloudflare / any DATABASE_URL deploy): secure cookies in production.
+  return (
+    process.env.NODE_ENV === "production" &&
+    Boolean(process.env.DATABASE_URL?.trim())
+  );
 }
 
 export function sessionCookieOptions(expires: Date) {
@@ -25,9 +36,7 @@ export function sessionCookieOptions(expires: Date) {
     sameSite: "lax" as const,
     path: "/",
     expires,
-    secure:
-      process.env.NODE_ENV === "production" &&
-      process.env.BABYALESTOCK_SECURE_COOKIE === "1",
+    secure: useSecureCookies(),
   };
 }
 
@@ -42,13 +51,14 @@ export async function createSession(
   | { ok: true; user: SessionUser; sessionId: string; expires: Date }
   | { ok: false; error: string }
 > {
-  ensureDb();
+  await ensureDb();
   const db = getDb();
-  const user = db
-    .select()
-    .from(users)
-    .where(and(eq(users.username, username.trim()), eq(users.isActive, true)))
-    .get();
+  const user = await one(
+    db
+      .select()
+      .from(users)
+      .where(and(eq(users.username, username.trim()), eq(users.isActive, true))),
+  );
 
   if (!user) {
     return { ok: false, error: "Usuario o contraseña incorrectos." };
@@ -63,13 +73,11 @@ export async function createSession(
   const expires = new Date();
   expires.setDate(expires.getDate() + SESSION_DAYS);
 
-  db.insert(sessions)
-    .values({
-      id: sessionId,
-      userId: user.id,
-      expiresAt: expires.toISOString(),
-    })
-    .run();
+  await db.insert(sessions).values({
+    id: sessionId,
+    userId: user.id,
+    expiresAt: expires.toISOString(),
+  });
 
   return {
     ok: true,
@@ -101,39 +109,40 @@ export async function login(
 }
 
 export async function logout(): Promise<void> {
-  ensureDb();
+  await ensureDb();
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
   if (sessionId) {
-    getDb().delete(sessions).where(eq(sessions.id, sessionId)).run();
+    await getDb().delete(sessions).where(eq(sessions.id, sessionId));
     cookieStore.delete(SESSION_COOKIE);
   }
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  ensureDb();
+  await ensureDb();
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
   if (!sessionId) return null;
 
   const db = getDb();
   const now = new Date().toISOString();
-  const row = db
-    .select({
-      id: users.id,
-      username: users.username,
-      displayName: users.displayName,
-      expiresAt: sessions.expiresAt,
-      isActive: users.isActive,
-    })
-    .from(sessions)
-    .innerJoin(users, eq(sessions.userId, users.id))
-    .where(and(eq(sessions.id, sessionId), gt(sessions.expiresAt, now)))
-    .get();
+  const row = await one(
+    db
+      .select({
+        id: users.id,
+        username: users.username,
+        displayName: users.displayName,
+        expiresAt: sessions.expiresAt,
+        isActive: users.isActive,
+      })
+      .from(sessions)
+      .innerJoin(users, eq(sessions.userId, users.id))
+      .where(and(eq(sessions.id, sessionId), gt(sessions.expiresAt, now))),
+  );
 
   if (!row || !row.isActive) {
     if (sessionId) {
-      db.delete(sessions).where(eq(sessions.id, sessionId)).run();
+      await db.delete(sessions).where(eq(sessions.id, sessionId));
     }
     return null;
   }

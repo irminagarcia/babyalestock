@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { runMigrations } from "./migrate";
 import { getDb } from "./client";
+import { exec, one } from "./query";
 import { users } from "./schema";
 import { getDbPath } from "../lib/paths";
 
@@ -33,44 +34,42 @@ async function resetUsers() {
   console.log(`Base de datos: ${getDbPath()}`);
   console.log("");
 
-  runMigrations();
+  await runMigrations();
   const db = getDb();
 
   for (const u of DEFAULTS) {
     const passwordHash = await bcrypt.hash(u.password, 10);
-    const existing = db
-      .select()
-      .from(users)
-      .where(eq(users.username, u.username))
-      .get();
+    const existing = await one(
+      db.select().from(users).where(eq(users.username, u.username)),
+    );
 
     if (!existing) {
-      db.insert(users)
-        .values({
+      await exec(
+        db.insert(users).values({
           username: u.username,
           displayName: u.displayName,
           passwordHash,
           isActive: true,
-        })
-        .run();
+        }),
+      );
       console.log(`✓ Creado: ${u.username} / ${u.password}`);
     } else {
-      db.update(users)
-        .set({
-          passwordHash,
-          displayName: u.displayName,
-          isActive: true,
-        })
-        .where(eq(users.username, u.username))
-        .run();
+      await exec(
+        db
+          .update(users)
+          .set({
+            passwordHash,
+            displayName: u.displayName,
+            isActive: true,
+          })
+          .where(eq(users.username, u.username)),
+      );
       console.log(`✓ Restablecido: ${u.username} / ${u.password}`);
     }
 
-    const row = db
-      .select()
-      .from(users)
-      .where(eq(users.username, u.username))
-      .get();
+    const row = await one(
+      db.select().from(users).where(eq(users.username, u.username)),
+    );
     if (!row) {
       throw new Error(`No se pudo guardar el usuario ${u.username}`);
     }

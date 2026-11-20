@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, like, or, sql, ne } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/db/client";
+import { exec, one } from "@/db/query";
 import {
   categories,
   products,
@@ -65,15 +66,16 @@ export async function upsertProduct(formData: FormData) {
 
   const sku = emptyToNull(formData.get("sku"));
   if (sku) {
-    const clash = db
-      .select()
-      .from(products)
-      .where(
-        id
-          ? and(eq(products.sku, sku), ne(products.id, id))
-          : eq(products.sku, sku),
-      )
-      .get();
+    const clash = await one(
+      db
+        .select()
+        .from(products)
+        .where(
+          id
+            ? and(eq(products.sku, sku), ne(products.id, id))
+            : eq(products.sku, sku),
+        ),
+    );
     if (clash) {
       return { ok: false as const, error: "Ya existe un producto con ese SKU." };
     }
@@ -83,7 +85,7 @@ export async function upsertProduct(formData: FormData) {
   const photoFile = photo instanceof File ? photo : null;
 
   const existing = id
-    ? db.select().from(products).where(eq(products.id, id)).get()
+    ? await one(db.select().from(products).where(eq(products.id, id)))
     : null;
 
   const photoPath = await savePhoto(photoFile, existing?.photoPath);
@@ -114,17 +116,21 @@ export async function upsertProduct(formData: FormData) {
   // Initial stock only on create — later changes go through movements
   if (!id) {
     const initialStock = parseIntOr(formData.get("currentStock"), 0);
-    const created = db
-      .insert(products)
-      .values({ ...values, currentStock: Math.max(0, initialStock) })
-      .returning()
-      .get();
+    const created = await one(
+      db
+        .insert(products)
+        .values({ ...values, currentStock: Math.max(0, initialStock) })
+        .returning(),
+    );
+    if (!created) {
+      return { ok: false as const, error: "No se pudo crear el producto." };
+    }
     revalidatePath("/productos");
     revalidatePath("/panel");
     return { ok: true as const, id: created.id };
   }
 
-  db.update(products).set(values).where(eq(products.id, id)).run();
+  await exec(db.update(products).set(values).where(eq(products.id, id)));
   revalidatePath("/productos");
   revalidatePath(`/productos/${id}`);
   revalidatePath("/panel");
@@ -133,11 +139,12 @@ export async function upsertProduct(formData: FormData) {
 
 export async function archiveProduct(productId: number) {
   await requireUser();
-  getDb()
-    .update(products)
-    .set({ status: "archived", updatedAt: new Date().toISOString() })
-    .where(eq(products.id, productId))
-    .run();
+  await exec(
+    getDb()
+      .update(products)
+      .set({ status: "archived", updatedAt: new Date().toISOString() })
+      .where(eq(products.id, productId)),
+  );
   revalidatePath("/productos");
   revalidatePath("/panel");
   return { ok: true as const };
@@ -145,11 +152,12 @@ export async function archiveProduct(productId: number) {
 
 export async function restoreProduct(productId: number) {
   await requireUser();
-  getDb()
-    .update(products)
-    .set({ status: "active", updatedAt: new Date().toISOString() })
-    .where(eq(products.id, productId))
-    .run();
+  await exec(
+    getDb()
+      .update(products)
+      .set({ status: "active", updatedAt: new Date().toISOString() })
+      .where(eq(products.id, productId)),
+  );
   revalidatePath("/productos");
   revalidatePath("/panel");
   return { ok: true as const };
@@ -202,7 +210,7 @@ export async function listProducts(filters: ProductFilters = {}) {
     conditions.push(sql`${products.currentStock} > 0`);
   }
 
-  const rows = db
+  const rows = (await db
     .select({
       id: products.id,
       name: products.name,
@@ -229,9 +237,9 @@ export async function listProducts(filters: ProductFilters = {}) {
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
     .leftJoin(suppliers, eq(products.supplierId, suppliers.id))
-    .where(conditions.length ? and(...conditions) : undefined)
-    .all()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+    .where(conditions.length ? and(...conditions) : undefined)).sort((a, b) =>
+    a.name.localeCompare(b.name, "es"),
+  );
 
   return rows;
 }

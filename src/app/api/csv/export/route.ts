@@ -17,7 +17,7 @@ export async function GET() {
   }
 
   const db = getDb();
-  const rows = db
+  const rows = await db
     .select({
       name: products.name,
       sku: products.sku,
@@ -41,8 +41,7 @@ export async function GET() {
     .from(products)
     .leftJoin(categories, eq(products.categoryId, categories.id))
     .leftJoin(subcategories, eq(products.subcategoryId, subcategories.id))
-    .leftJoin(suppliers, eq(products.supplierId, suppliers.id))
-    .all();
+    .leftJoin(suppliers, eq(products.supplierId, suppliers.id));
 
   const csv = productsToCsv(rows);
   return new NextResponse(csv, {

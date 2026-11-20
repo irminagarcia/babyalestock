@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
-import { getDb, getSqlite } from "@/db/client";
+import { getDb, type Db, type Tx } from "@/db/client";
+import { one } from "@/db/query";
 import {
   products,
   stockMovements,
@@ -20,25 +21,28 @@ export type CreateMovementInput = {
   sourceId?: number | null;
   /**
    * When true, skip the outer transaction (caller already inside one).
-   * Uses the same SQLite connection.
+   * Pass `tx` from the outer transaction callback.
    */
   skipTransaction?: boolean;
+  tx?: Tx;
 };
 
 export type MovementResult =
   | { ok: true; movementId: number; stockAfter: number; duplicate?: boolean }
   | { ok: false; error: string };
 
-export function createStockMovement(input: CreateMovementInput): MovementResult {
+export async function createStockMovement(
+  input: CreateMovementInput,
+): Promise<MovementResult> {
   const db = getDb();
-  const sqlite = getSqlite();
   const key = input.idempotencyKey?.trim() || randomUUID();
 
-  const existing = db
-    .select()
-    .from(stockMovements)
-    .where(eq(stockMovements.idempotencyKey, key))
-    .get();
+  const existing = await one(
+    db
+      .select()
+      .from(stockMovements)
+      .where(eq(stockMovements.idempotencyKey, key)),
+  );
 
   if (existing) {
     return {
@@ -60,12 +64,10 @@ export function createStockMovement(input: CreateMovementInput): MovementResult 
     };
   }
 
-  const run = () => {
-    const product = db
-      .select()
-      .from(products)
-      .where(eq(products.id, input.productId))
-      .get();
+  const run = async (tx: Tx | Db) => {
+    const product = await one(
+      tx.select().from(products).where(eq(products.id, input.productId)),
+    );
 
     if (!product) {
       throw new Error("Producto no encontrado.");
@@ -87,54 +89,63 @@ export function createStockMovement(input: CreateMovementInput): MovementResult 
       );
     }
 
-    db.update(products)
+    await tx
+      .update(products)
       .set({
         currentStock: stockAfter,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(products.id, product.id))
-      .run();
+      .where(eq(products.id, product.id));
 
-    const movement = db
-      .insert(stockMovements)
-      .values({
-        productId: product.id,
-        type: input.type,
-        quantity:
-          input.type === "manual_correction"
-            ? input.quantity
-            : Math.abs(input.quantity),
-        stockBefore,
-        stockAfter,
-        reason: input.reason?.trim() || null,
-        occurredAt: input.occurredAt || new Date().toISOString(),
-        userId: input.userId,
-        idempotencyKey: key,
-        sourceType: input.sourceType ?? null,
-        sourceId: input.sourceId ?? null,
-      })
-      .returning()
-      .get();
+    const movement = await one(
+      tx
+        .insert(stockMovements)
+        .values({
+          productId: product.id,
+          type: input.type,
+          quantity:
+            input.type === "manual_correction"
+              ? input.quantity
+              : Math.abs(input.quantity),
+          stockBefore,
+          stockAfter,
+          reason: input.reason?.trim() || null,
+          occurredAt: input.occurredAt || new Date().toISOString(),
+          userId: input.userId,
+          idempotencyKey: key,
+          sourceType: input.sourceType ?? null,
+          sourceId: input.sourceId ?? null,
+        })
+        .returning(),
+    );
+
+    if (!movement) {
+      throw new Error("No se pudo crear el movimiento de stock.");
+    }
 
     return { movementId: movement.id, stockAfter, stockBefore };
   };
 
   try {
     const result = input.skipTransaction
-      ? run()
-      : sqlite.transaction(run)();
+      ? await run(input.tx ?? db)
+      : await db.transaction(async (tx) => run(tx));
 
-    return { ok: true, movementId: result.movementId, stockAfter: result.stockAfter };
+    return {
+      ok: true,
+      movementId: result.movementId,
+      stockAfter: result.stockAfter,
+    };
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "No se pudo registrar el movimiento.";
-    // Unique constraint race on idempotency key
     if (message.includes("UNIQUE") || message.includes("unique")) {
-      const again = db
-        .select()
-        .from(stockMovements)
-        .where(eq(stockMovements.idempotencyKey, key))
-        .get();
+      const again = await one(
+        db
+          .select()
+          .from(stockMovements)
+          .where(eq(stockMovements.idempotencyKey, key)),
+      );
       if (again) {
         return {
           ok: true,

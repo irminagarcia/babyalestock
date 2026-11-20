@@ -40,16 +40,14 @@ export default async function DeliveryDetailPage({
   const { delivery, lines } = detail;
 
   const db = getDb();
-  const supplierRows = db
+  const supplierRows = await db
     .select({ id: suppliers.id, name: suppliers.name })
     .from(suppliers)
-    .where(eq(suppliers.isActive, true))
-    .all();
-  const productRows = db
+    .where(eq(suppliers.isActive, true));
+  const productRows = await db
     .select({ id: products.id, name: products.name, sku: products.sku })
     .from(products)
-    .where(ne(products.status, "archived"))
-    .all();
+    .where(ne(products.status, "archived"));
 
   const totalLanded = lines.reduce(
     (s, l) => s + l.landedUnitCost * l.quantity,

@@ -6,11 +6,9 @@ import { Badge } from "@/components/ui/badge";
 
 export default async function SuppliersPage() {
   await requireUser();
-  const rows = getDb()
-    .select()
-    .from(suppliers)
-    .all()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const rows = (
+    await getDb().select().from(suppliers)
+  ).sort((a, b) => a.name.localeCompare(b.name, "es"));
 
   return (
     <div className="space-y-8">

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { runMigrations } from "./migrate";
 import { getDb } from "./client";
+import { exec, one } from "./query";
 import { categories, products, subcategories, suppliers, users } from "./schema";
 import { getDbPath } from "../lib/paths";
 
@@ -11,20 +12,20 @@ async function ensureUser(opts: {
   password: string;
 }): Promise<void> {
   const db = getDb();
-  const existing = db
-    .select()
-    .from(users)
-    .where(eq(users.username, opts.username))
-    .get();
+  const existing = await one(
+    db.select().from(users).where(eq(users.username, opts.username)),
+  );
 
   if (existing) {
     // Re-activate if someone disabled the account; do not overwrite passwords
     // on normal seed (use `npm run reset-users` to force defaults).
     if (!existing.isActive) {
-      db.update(users)
-        .set({ isActive: true })
-        .where(eq(users.username, opts.username))
-        .run();
+      await exec(
+        db
+          .update(users)
+          .set({ isActive: true })
+          .where(eq(users.username, opts.username)),
+      );
       console.log(`Usuario reactivado: ${opts.username}`);
     } else {
       console.log(`Usuario ya existe: ${opts.username}`);
@@ -33,20 +34,18 @@ async function ensureUser(opts: {
   }
 
   const passwordHash = await bcrypt.hash(opts.password, 10);
-  db.insert(users)
-    .values({
+  await exec(
+    db.insert(users).values({
       username: opts.username,
       displayName: opts.displayName,
       passwordHash,
       isActive: true,
-    })
-    .run();
+    }),
+  );
 
-  const row = db
-    .select()
-    .from(users)
-    .where(eq(users.username, opts.username))
-    .get();
+  const row = await one(
+    db.select().from(users).where(eq(users.username, opts.username)),
+  );
   if (!row) {
     throw new Error(
       `No se pudo crear el usuario ${opts.username} en ${getDbPath()}`,
@@ -63,7 +62,7 @@ async function ensureUser(opts: {
 
 async function seed() {
   console.log(`Sembrando base de datos: ${getDbPath()}`);
-  runMigrations();
+  await runMigrations();
   const db = getDb();
 
   const defaultUsers = [
@@ -107,42 +106,41 @@ async function seed() {
   ];
 
   for (const cat of sampleCategories) {
-    let row = db
-      .select()
-      .from(categories)
-      .where(eq(categories.name, cat.name))
-      .get();
+    let row = await one(
+      db.select().from(categories).where(eq(categories.name, cat.name)),
+    );
     if (!row) {
-      row = db
-        .insert(categories)
-        .values({ name: cat.name, description: cat.description })
-        .returning()
-        .get();
+      row = await one(
+        db
+          .insert(categories)
+          .values({ name: cat.name, description: cat.description })
+          .returning(),
+      );
     }
+    if (!row) continue;
     for (const sub of cat.subs) {
-      const exists = db
+      const subs = await db
         .select()
         .from(subcategories)
-        .where(eq(subcategories.name, sub))
-        .all()
-        .find((s) => s.categoryId === row!.id);
+        .where(eq(subcategories.name, sub));
+      const exists = subs.find((s) => s.categoryId === row.id);
       if (!exists) {
-        db.insert(subcategories)
-          .values({ categoryId: row.id, name: sub })
-          .run();
+        await exec(
+          db
+            .insert(subcategories)
+            .values({ categoryId: row.id, name: sub }),
+        );
       }
     }
   }
 
   const sampleSuppliers = ["Baby Soft S.L.", "Dulce Infancia", "Mimo & Co."];
   for (const name of sampleSuppliers) {
-    const exists = db
-      .select()
-      .from(suppliers)
-      .where(eq(suppliers.name, name))
-      .get();
+    const exists = await one(
+      db.select().from(suppliers).where(eq(suppliers.name, name)),
+    );
     if (!exists) {
-      db.insert(suppliers).values({ name }).run();
+      await exec(db.insert(suppliers).values({ name }));
     }
   }
 
@@ -194,36 +192,35 @@ async function seed() {
   ];
 
   for (const sample of sampleProducts) {
-    const exists = db
-      .select()
-      .from(products)
-      .where(eq(products.sku, sample.sku))
-      .get();
+    const exists = await one(
+      db.select().from(products).where(eq(products.sku, sample.sku)),
+    );
     if (exists) continue;
 
-    const cat = db
-      .select()
-      .from(categories)
-      .where(eq(categories.name, sample.categoryName))
-      .get();
+    const cat = await one(
+      db
+        .select()
+        .from(categories)
+        .where(eq(categories.name, sample.categoryName)),
+    );
+    const subRows = cat
+      ? await db.select().from(subcategories)
+      : [];
     const sub = cat
-      ? db
-          .select()
-          .from(subcategories)
-          .all()
-          .find(
-            (s) =>
-              s.categoryId === cat.id && s.name === sample.subcategoryName,
-          )
+      ? subRows.find(
+          (s) =>
+            s.categoryId === cat.id && s.name === sample.subcategoryName,
+        )
       : undefined;
-    const sup = db
-      .select()
-      .from(suppliers)
-      .where(eq(suppliers.name, sample.supplierName))
-      .get();
+    const sup = await one(
+      db
+        .select()
+        .from(suppliers)
+        .where(eq(suppliers.name, sample.supplierName)),
+    );
 
-    db.insert(products)
-      .values({
+    await exec(
+      db.insert(products).values({
         name: sample.name,
         sku: sample.sku,
         brand: sample.brand,
@@ -239,8 +236,8 @@ async function seed() {
         supplierId: sup?.id ?? null,
         storageLocation: sample.storageLocation,
         status: "active",
-      })
-      .run();
+      }),
+    );
   }
 
   console.log("Semilla completada.");

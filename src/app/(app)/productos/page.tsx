@@ -26,19 +26,18 @@ export default async function ProductsPage({
   const filters = await searchParams;
   const rows = await listProducts(filters);
   const db = getDb();
-  const cats = db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(eq(categories.isActive, true))
-    .all()
-    .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const cats = (
+    await db
+      .select({ id: categories.id, name: categories.name })
+      .from(categories)
+      .where(eq(categories.isActive, true))
+  ).sort((a, b) => a.name.localeCompare(b.name, "es"));
   const brands = [
     ...new Set(
-      db
+      (await db
         .select({ brand: products.brand })
         .from(products)
-        .where(ne(products.status, "archived"))
-        .all()
+        .where(ne(products.status, "archived")))
         .map((r) => r.brand)
         .filter((b): b is string => Boolean(b)),
     ),

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
-import { getDb, getSqlite } from "@/db/client";
+import { getDb } from "@/db/client";
+import { one } from "@/db/query";
 import {
   products,
   supplierDeliveries,
@@ -97,22 +98,23 @@ export async function saveDraftDelivery(
     lines,
   );
   const db = getDb();
-  const sqlite = getSqlite();
   const now = new Date().toISOString();
 
   try {
-    const deliveryId = sqlite.transaction(() => {
+    const deliveryId = await db.transaction(async (tx) => {
       if (id) {
-        const existing = db
-          .select()
-          .from(supplierDeliveries)
-          .where(eq(supplierDeliveries.id, id))
-          .get();
+        const existing = await one(
+          tx
+            .select()
+            .from(supplierDeliveries)
+            .where(eq(supplierDeliveries.id, id)),
+        );
         if (!existing) throw new Error("Entrega no encontrada.");
         if (existing.status !== "draft") {
           throw new Error("Solo se pueden editar entregas en borrador.");
         }
-        db.update(supplierDeliveries)
+        await tx
+          .update(supplierDeliveries)
           .set({
             supplierId,
             deliveryDate,
@@ -123,52 +125,13 @@ export async function saveDraftDelivery(
             notes,
             updatedAt: now,
           })
-          .where(eq(supplierDeliveries.id, id))
-          .run();
-        db.delete(supplierDeliveryLines)
-          .where(eq(supplierDeliveryLines.deliveryId, id))
-          .run();
-        computed.lines.forEach((line, sortOrder) => {
-          db.insert(supplierDeliveryLines)
-            .values({
-              deliveryId: id,
-              productId: line.productId,
-              quantity: line.quantity,
-              unitPurchaseNet: line.unitPurchaseNet,
-              vatRate: line.vatRate,
-              vatRecoverable: line.vatRecoverable,
-              lineNet: line.lineNet,
-              vatAmount: line.vatAmount,
-              allocatedOverhead: line.allocatedOverhead,
-              nonRecoverableTax: line.nonRecoverableTax,
-              landedUnitCost: line.landedUnitCost,
-              sortOrder,
-            })
-            .run();
-        });
-        return id;
-      }
-
-      const created = db
-        .insert(supplierDeliveries)
-        .values({
-          supplierId,
-          deliveryDate,
-          reference,
-          shippingCost,
-          otherCosts,
-          allocationMethod,
-          notes,
-          status: "draft",
-          createdByUserId: user.id,
-        })
-        .returning()
-        .get();
-
-      computed.lines.forEach((line, sortOrder) => {
-        db.insert(supplierDeliveryLines)
-          .values({
-            deliveryId: created.id,
+          .where(eq(supplierDeliveries.id, id));
+        await tx
+          .delete(supplierDeliveryLines)
+          .where(eq(supplierDeliveryLines.deliveryId, id));
+        for (const [sortOrder, line] of computed.lines.entries()) {
+          await tx.insert(supplierDeliveryLines).values({
+            deliveryId: id,
             productId: line.productId,
             quantity: line.quantity,
             unitPurchaseNet: line.unitPurchaseNet,
@@ -180,11 +143,47 @@ export async function saveDraftDelivery(
             nonRecoverableTax: line.nonRecoverableTax,
             landedUnitCost: line.landedUnitCost,
             sortOrder,
+          });
+        }
+        return id;
+      }
+
+      const created = await one(
+        tx
+          .insert(supplierDeliveries)
+          .values({
+            supplierId,
+            deliveryDate,
+            reference,
+            shippingCost,
+            otherCosts,
+            allocationMethod,
+            notes,
+            status: "draft",
+            createdByUserId: user.id,
           })
-          .run();
-      });
+          .returning(),
+      );
+      if (!created) throw new Error("No se pudo crear la entrega.");
+
+      for (const [sortOrder, line] of computed.lines.entries()) {
+        await tx.insert(supplierDeliveryLines).values({
+          deliveryId: created.id,
+          productId: line.productId,
+          quantity: line.quantity,
+          unitPurchaseNet: line.unitPurchaseNet,
+          vatRate: line.vatRate,
+          vatRecoverable: line.vatRecoverable,
+          lineNet: line.lineNet,
+          vatAmount: line.vatAmount,
+          allocatedOverhead: line.allocatedOverhead,
+          nonRecoverableTax: line.nonRecoverableTax,
+          landedUnitCost: line.landedUnitCost,
+          sortOrder,
+        });
+      }
       return created.id;
-    })();
+    });
 
     revalidatePath("/entregas");
     revalidatePath(`/entregas/${deliveryId}`);
@@ -208,13 +207,13 @@ export async function confirmDelivery(deliveryId: number): Promise<DeliveryFormS
   if (!user) redirect("/login");
 
   const db = getDb();
-  const sqlite = getSqlite();
 
-  const delivery = db
-    .select()
-    .from(supplierDeliveries)
-    .where(eq(supplierDeliveries.id, deliveryId))
-    .get();
+  const delivery = await one(
+    db
+      .select()
+      .from(supplierDeliveries)
+      .where(eq(supplierDeliveries.id, deliveryId)),
+  );
 
   if (!delivery) return { error: "Entrega no encontrada." };
   if (delivery.status === "confirmed") {
@@ -224,12 +223,12 @@ export async function confirmDelivery(deliveryId: number): Promise<DeliveryFormS
     return { error: "Solo se pueden confirmar entregas en borrador." };
   }
 
-  const lines = db
-    .select()
-    .from(supplierDeliveryLines)
-    .where(eq(supplierDeliveryLines.deliveryId, deliveryId))
-    .all()
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const lines = (
+    await db
+      .select()
+      .from(supplierDeliveryLines)
+      .where(eq(supplierDeliveryLines.deliveryId, deliveryId))
+  ).sort((a, b) => a.sortOrder - b.sortOrder);
 
   if (lines.length === 0) {
     return { error: "La entrega no tiene líneas." };
@@ -252,7 +251,7 @@ export async function confirmDelivery(deliveryId: number): Promise<DeliveryFormS
   );
 
   try {
-    sqlite.transaction(() => {
+    await db.transaction(async (tx) => {
       const now = new Date().toISOString();
       const byKey = new Map(computed.lines.map((l) => [l.key, l]));
 
@@ -260,7 +259,8 @@ export async function confirmDelivery(deliveryId: number): Promise<DeliveryFormS
         const c = byKey.get(String(line.id));
         if (!c) throw new Error("Error al recalcular costes de línea.");
 
-        db.update(supplierDeliveryLines)
+        await tx
+          .update(supplierDeliveryLines)
           .set({
             lineNet: c.lineNet,
             vatAmount: c.vatAmount,
@@ -268,21 +268,18 @@ export async function confirmDelivery(deliveryId: number): Promise<DeliveryFormS
             nonRecoverableTax: c.nonRecoverableTax,
             landedUnitCost: c.landedUnitCost,
           })
-          .where(eq(supplierDeliveryLines.id, line.id))
-          .run();
+          .where(eq(supplierDeliveryLines.id, line.id));
 
-        const product = db
-          .select()
-          .from(products)
-          .where(eq(products.id, line.productId))
-          .get();
+        const product = await one(
+          tx.select().from(products).where(eq(products.id, line.productId)),
+        );
         if (!product) throw new Error(`Producto #${line.productId} no encontrado.`);
 
         const stockBefore = product.currentStock;
         const oldLanded = product.landedCost ?? product.purchaseCost;
         const idempotencyKey = `delivery:${deliveryId}:line:${line.id}:received`;
 
-        const movement = createStockMovement({
+        const movement = await createStockMovement({
           productId: line.productId,
           type: "received",
           quantity: line.quantity,
@@ -295,6 +292,7 @@ export async function confirmDelivery(deliveryId: number): Promise<DeliveryFormS
           sourceType: "delivery_line",
           sourceId: line.id,
           skipTransaction: true,
+          tx,
         });
 
         if (!movement.ok) {
@@ -308,33 +306,32 @@ export async function confirmDelivery(deliveryId: number): Promise<DeliveryFormS
           c.landedUnitCost,
         );
 
-        // Re-read after movement for consistency of stock; WA uses stockBefore intentionally.
-        db.update(products)
+        await tx
+          .update(products)
           .set({
             purchaseCost: c.unitPurchaseNet,
             landedCost: newLanded,
             supplierId: product.supplierId ?? delivery.supplierId,
             updatedAt: now,
           })
-          .where(eq(products.id, line.productId))
-          .run();
+          .where(eq(products.id, line.productId));
 
-        db.update(supplierDeliveryLines)
+        await tx
+          .update(supplierDeliveryLines)
           .set({ stockMovementId: movement.movementId })
-          .where(eq(supplierDeliveryLines.id, line.id))
-          .run();
+          .where(eq(supplierDeliveryLines.id, line.id));
       }
 
-      db.update(supplierDeliveries)
+      await tx
+        .update(supplierDeliveries)
         .set({
           status: "confirmed",
           confirmedAt: now,
           confirmedByUserId: user.id,
           updatedAt: now,
         })
-        .where(eq(supplierDeliveries.id, deliveryId))
-        .run();
-    })();
+        .where(eq(supplierDeliveries.id, deliveryId));
+    });
 
     revalidatePath("/entregas");
     revalidatePath(`/entregas/${deliveryId}`);
@@ -357,16 +354,17 @@ export async function deleteDraftDelivery(deliveryId: number) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const db = getDb();
-  const row = db
-    .select()
-    .from(supplierDeliveries)
-    .where(eq(supplierDeliveries.id, deliveryId))
-    .get();
+  const row = await one(
+    db
+      .select()
+      .from(supplierDeliveries)
+      .where(eq(supplierDeliveries.id, deliveryId)),
+  );
   if (!row) return { error: "Entrega no encontrada." };
   if (row.status !== "draft") {
     return { error: "Solo se pueden eliminar borradores." };
   }
-  db.delete(supplierDeliveries).where(eq(supplierDeliveries.id, deliveryId)).run();
+  await db.delete(supplierDeliveries).where(eq(supplierDeliveries.id, deliveryId));
   revalidatePath("/entregas");
   return { ok: true as const };
 }
@@ -389,58 +387,58 @@ export async function listDeliveries() {
     })
     .from(supplierDeliveries)
     .innerJoin(suppliers, eq(supplierDeliveries.supplierId, suppliers.id))
-    .orderBy(desc(supplierDeliveries.deliveryDate), desc(supplierDeliveries.id))
-    .all();
+    .orderBy(desc(supplierDeliveries.deliveryDate), desc(supplierDeliveries.id));
 }
 
 export async function getDeliveryDetail(id: number) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const db = getDb();
-  const delivery = db
-    .select({
-      id: supplierDeliveries.id,
-      supplierId: supplierDeliveries.supplierId,
-      supplierName: suppliers.name,
-      deliveryDate: supplierDeliveries.deliveryDate,
-      reference: supplierDeliveries.reference,
-      shippingCost: supplierDeliveries.shippingCost,
-      otherCosts: supplierDeliveries.otherCosts,
-      allocationMethod: supplierDeliveries.allocationMethod,
-      status: supplierDeliveries.status,
-      notes: supplierDeliveries.notes,
-      confirmedAt: supplierDeliveries.confirmedAt,
-    })
-    .from(supplierDeliveries)
-    .innerJoin(suppliers, eq(supplierDeliveries.supplierId, suppliers.id))
-    .where(eq(supplierDeliveries.id, id))
-    .get();
+  const delivery = await one(
+    db
+      .select({
+        id: supplierDeliveries.id,
+        supplierId: supplierDeliveries.supplierId,
+        supplierName: suppliers.name,
+        deliveryDate: supplierDeliveries.deliveryDate,
+        reference: supplierDeliveries.reference,
+        shippingCost: supplierDeliveries.shippingCost,
+        otherCosts: supplierDeliveries.otherCosts,
+        allocationMethod: supplierDeliveries.allocationMethod,
+        status: supplierDeliveries.status,
+        notes: supplierDeliveries.notes,
+        confirmedAt: supplierDeliveries.confirmedAt,
+      })
+      .from(supplierDeliveries)
+      .innerJoin(suppliers, eq(supplierDeliveries.supplierId, suppliers.id))
+      .where(eq(supplierDeliveries.id, id)),
+  );
 
   if (!delivery) return null;
 
-  const lines = db
-    .select({
-      id: supplierDeliveryLines.id,
-      productId: supplierDeliveryLines.productId,
-      productName: products.name,
-      productSku: products.sku,
-      quantity: supplierDeliveryLines.quantity,
-      unitPurchaseNet: supplierDeliveryLines.unitPurchaseNet,
-      vatRate: supplierDeliveryLines.vatRate,
-      vatRecoverable: supplierDeliveryLines.vatRecoverable,
-      lineNet: supplierDeliveryLines.lineNet,
-      vatAmount: supplierDeliveryLines.vatAmount,
-      allocatedOverhead: supplierDeliveryLines.allocatedOverhead,
-      nonRecoverableTax: supplierDeliveryLines.nonRecoverableTax,
-      landedUnitCost: supplierDeliveryLines.landedUnitCost,
-      stockMovementId: supplierDeliveryLines.stockMovementId,
-      sortOrder: supplierDeliveryLines.sortOrder,
-    })
-    .from(supplierDeliveryLines)
-    .innerJoin(products, eq(supplierDeliveryLines.productId, products.id))
-    .where(eq(supplierDeliveryLines.deliveryId, id))
-    .all()
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const lines = (
+    await db
+      .select({
+        id: supplierDeliveryLines.id,
+        productId: supplierDeliveryLines.productId,
+        productName: products.name,
+        productSku: products.sku,
+        quantity: supplierDeliveryLines.quantity,
+        unitPurchaseNet: supplierDeliveryLines.unitPurchaseNet,
+        vatRate: supplierDeliveryLines.vatRate,
+        vatRecoverable: supplierDeliveryLines.vatRecoverable,
+        lineNet: supplierDeliveryLines.lineNet,
+        vatAmount: supplierDeliveryLines.vatAmount,
+        allocatedOverhead: supplierDeliveryLines.allocatedOverhead,
+        nonRecoverableTax: supplierDeliveryLines.nonRecoverableTax,
+        landedUnitCost: supplierDeliveryLines.landedUnitCost,
+        stockMovementId: supplierDeliveryLines.stockMovementId,
+        sortOrder: supplierDeliveryLines.sortOrder,
+      })
+      .from(supplierDeliveryLines)
+      .innerJoin(products, eq(supplierDeliveryLines.productId, products.id))
+      .where(eq(supplierDeliveryLines.deliveryId, id))
+  ).sort((a, b) => a.sortOrder - b.sortOrder);
 
   return { delivery, lines };
 }

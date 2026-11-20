@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { getDb } from "@/db/client";
+import { one } from "@/db/query";
 import {
   giftBasketAssemblies,
   giftBasketAssemblyLines,
@@ -35,9 +36,9 @@ function parseMode(raw: string): AssemblyMode {
   return raw === "mto" ? "mto" : "preassembled";
 }
 
-function loadBasketComponents(basketId: number) {
+async function loadBasketComponents(basketId: number) {
   const db = getDb();
-  return db
+  return await db
     .select({
       productId: giftBasketComponents.productId,
       recipeQty: giftBasketComponents.quantity,
@@ -50,8 +51,7 @@ function loadBasketComponents(basketId: number) {
     })
     .from(giftBasketComponents)
     .innerJoin(products, eq(giftBasketComponents.productId, products.id))
-    .where(eq(giftBasketComponents.basketId, basketId))
-    .all();
+    .where(eq(giftBasketComponents.basketId, basketId));
 }
 
 function revalidateAssemblyPaths(assemblyId?: number, basketId?: number) {
@@ -74,17 +74,15 @@ export async function previewAssembly(opts: {
   if (!user) redirect("/login");
 
   const db = getDb();
-  const basket = db
-    .select()
-    .from(giftBaskets)
-    .where(eq(giftBaskets.id, opts.basketId))
-    .get();
+  const basket = await one(
+    db.select().from(giftBaskets).where(eq(giftBaskets.id, opts.basketId)),
+  );
   if (!basket) return { error: "Receta no encontrada." };
   if (basket.status !== "active") {
     return { error: "Solo se pueden montar recetas activas." };
   }
 
-  const comps = loadBasketComponents(basket.id);
+  const comps = await loadBasketComponents(basket.id);
   if (comps.some((c) => c.status === "archived")) {
     return {
       error:
@@ -125,7 +123,7 @@ export async function confirmAssembly(
     return { error: "Indique una cantidad de cestas ≥ 1." };
   }
 
-  const result = executeConfirmAssembly({
+  const result = await executeConfirmAssembly({
     basketId,
     quantity,
     assemblyMode,
@@ -152,7 +150,7 @@ export async function cancelAssembly(
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const result = executeCancelAssembly({
+  const result = await executeCancelAssembly({
     assemblyId,
     userId: user.id,
   });
@@ -160,11 +158,12 @@ export async function cancelAssembly(
   if (!result.ok) return { error: result.error };
 
   const db = getDb();
-  const row = db
-    .select({ basketId: giftBasketAssemblies.basketId })
-    .from(giftBasketAssemblies)
-    .where(eq(giftBasketAssemblies.id, assemblyId))
-    .get();
+  const row = await one(
+    db
+      .select({ basketId: giftBasketAssemblies.basketId })
+      .from(giftBasketAssemblies)
+      .where(eq(giftBasketAssemblies.id, assemblyId)),
+  );
 
   revalidateAssemblyPaths(assemblyId, row?.basketId);
   return { success: result.success, assemblyId };
@@ -186,7 +185,7 @@ export async function listAssemblies(opts?: {
     conditions.push(eq(giftBasketAssemblies.basketId, opts.basketId));
   }
 
-  return db
+  return await db
     .select({
       id: giftBasketAssemblies.id,
       basketId: giftBasketAssemblies.basketId,
@@ -207,8 +206,7 @@ export async function listAssemblies(opts?: {
     .innerJoin(giftBaskets, eq(giftBasketAssemblies.basketId, giftBaskets.id))
     .leftJoin(users, eq(giftBasketAssemblies.assembledByUserId, users.id))
     .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(giftBasketAssemblies.assembledAt))
-    .all();
+    .orderBy(desc(giftBasketAssemblies.assembledAt));
 }
 
 export async function getAssemblyDetail(id: number) {
@@ -216,7 +214,8 @@ export async function getAssemblyDetail(id: number) {
   if (!user) redirect("/login");
 
   const db = getDb();
-  const assembly = db
+  const assembly = await one(
+    db
     .select({
       id: giftBasketAssemblies.id,
       basketId: giftBasketAssemblies.basketId,
@@ -239,12 +238,12 @@ export async function getAssemblyDetail(id: number) {
     .from(giftBasketAssemblies)
     .innerJoin(giftBaskets, eq(giftBasketAssemblies.basketId, giftBaskets.id))
     .leftJoin(users, eq(giftBasketAssemblies.assembledByUserId, users.id))
-    .where(eq(giftBasketAssemblies.id, id))
-    .get();
+    .where(eq(giftBasketAssemblies.id, id)),
+  );
 
   if (!assembly) return null;
 
-  const lines = db
+  const lines = await db
     .select({
       id: giftBasketAssemblyLines.id,
       productId: giftBasketAssemblyLines.productId,
@@ -259,16 +258,13 @@ export async function getAssemblyDetail(id: number) {
     })
     .from(giftBasketAssemblyLines)
     .innerJoin(products, eq(giftBasketAssemblyLines.productId, products.id))
-    .where(eq(giftBasketAssemblyLines.assemblyId, id))
-    .all();
+    .where(eq(giftBasketAssemblyLines.assemblyId, id));
 
   let cancelledByName: string | null = null;
   if (assembly.cancelledByUserId) {
-    const u = db
-      .select()
-      .from(users)
-      .where(eq(users.id, assembly.cancelledByUserId))
-      .get();
+    const u = await one(
+      db.select().from(users).where(eq(users.id, assembly.cancelledByUserId)),
+    );
     cancelledByName = u?.displayName ?? null;
   }
 
@@ -279,7 +275,7 @@ export async function listActiveBasketsForAssembly() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const db = getDb();
-  return db
+  return await db
     .select({
       id: giftBaskets.id,
       name: giftBaskets.name,
@@ -290,6 +286,5 @@ export async function listActiveBasketsForAssembly() {
     })
     .from(giftBaskets)
     .where(eq(giftBaskets.status, "active"))
-    .orderBy(giftBaskets.name)
-    .all();
+    .orderBy(giftBaskets.name);
 }

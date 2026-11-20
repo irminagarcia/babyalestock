@@ -36,6 +36,8 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "scripts/m2-phase1-integration.ts",
+    "scripts/m2-phase2-integration.ts"
   ]
 }

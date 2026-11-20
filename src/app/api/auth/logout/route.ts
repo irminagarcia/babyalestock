@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   const sessionId = request.cookies.get(SESSION_COOKIE)?.value;
   if (sessionId) {
     try {
-      getDb().delete(sessions).where(eq(sessions.id, sessionId)).run();
+      await getDb().delete(sessions).where(eq(sessions.id, sessionId));
     } catch {
       // ignore
     }

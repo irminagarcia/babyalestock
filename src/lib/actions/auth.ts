@@ -12,6 +12,7 @@ import {
   SESSION_COOKIE,
 } from "@/lib/auth";
 import { getDb } from "@/db/client";
+import { exec, one } from "@/db/query";
 import { sessions, users } from "@/db/schema";
 
 export type LoginState = {
@@ -79,7 +80,7 @@ export async function changeOwnPassword(
   }
 
   const db = getDb();
-  const row = db.select().from(users).where(eq(users.id, user.id)).get();
+  const row = await one(db.select().from(users).where(eq(users.id, user.id)));
   if (!row) {
     return { ok: false, error: "Usuario no encontrado." };
   }
@@ -90,10 +91,9 @@ export async function changeOwnPassword(
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  db.update(users)
-    .set({ passwordHash })
-    .where(eq(users.id, user.id))
-    .run();
+  await exec(
+    db.update(users).set({ passwordHash }).where(eq(users.id, user.id)),
+  );
 
   return { ok: true, message: "Contraseña actualizada." };
 }
@@ -137,21 +137,18 @@ export async function adminResetPassword(
   }
 
   const db = getDb();
-  const target = db
-    .select()
-    .from(users)
-    .where(eq(users.username, targetUsername))
-    .get();
+  const target = await one(
+    db.select().from(users).where(eq(users.username, targetUsername)),
+  );
   if (!target) {
     return { ok: false, error: "Usuario no encontrado." };
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  db.update(users)
-    .set({ passwordHash })
-    .where(eq(users.id, target.id))
-    .run();
-  db.delete(sessions).where(eq(sessions.userId, target.id)).run();
+  await exec(
+    db.update(users).set({ passwordHash }).where(eq(users.id, target.id)),
+  );
+  await exec(db.delete(sessions).where(eq(sessions.userId, target.id)));
 
   return {
     ok: true,
