@@ -240,8 +240,8 @@ export function ProductForm({
               defaultValue={initial?.currentStock ?? 0}
             />
             <p className="text-xs text-muted-foreground">
-              Después del alta, use Entradas / Salidas de stock para cambiar
-              cantidades.
+              Si se equivoca, podrá corregir existencias en Editar producto
+              (queda registrado en Movimientos) o usar Entradas / Salidas.
             </p>
           </div>
         )}
