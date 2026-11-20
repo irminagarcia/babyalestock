@@ -17,6 +17,12 @@ export type SessionUser = {
 };
 
 async function ensureDb() {
+  // Hosted `npm run build` runs scripts/migrate.mjs after `next build`.
+  // Skip during production prerender so parallel Next workers do not race
+  // CREATE TABLE IF NOT EXISTS on schema_migrations (pg_type 23505).
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return;
+  }
   await runMigrations();
 }
 
