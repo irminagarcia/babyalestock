@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS suppliers (
   contact_name TEXT,
   email TEXT,
   phone TEXT,
+  tax_id TEXT,
+  legal_name TEXT,
+  fiscal_address TEXT,
+  country TEXT DEFAULT 'España',
   notes TEXT,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TEXT NOT NULL DEFAULT (now() AT TIME ZONE 'utc')

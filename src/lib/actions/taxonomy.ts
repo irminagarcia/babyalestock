@@ -42,22 +42,30 @@ export async function createSubcategory(formData: FormData) {
   return { ok: true as const };
 }
 
+function optionalText(formData: FormData, key: string): string | null {
+  return String(formData.get(key) || "").trim() || null;
+}
+
 export async function createSupplier(formData: FormData) {
   await requireUser();
   const name = String(formData.get("name") || "").trim();
   if (!name) return { ok: false as const, error: "El nombre es obligatorio." };
   try {
-  await exec(
-    getDb()
-      .insert(suppliers)
-      .values({
-        name,
-        contactName: String(formData.get("contactName") || "").trim() || null,
-        email: String(formData.get("email") || "").trim() || null,
-        phone: String(formData.get("phone") || "").trim() || null,
-        notes: String(formData.get("notes") || "").trim() || null,
-      }),
-  );
+    await exec(
+      getDb()
+        .insert(suppliers)
+        .values({
+          name,
+          contactName: optionalText(formData, "contactName"),
+          email: optionalText(formData, "email"),
+          phone: optionalText(formData, "phone"),
+          taxId: optionalText(formData, "taxId"),
+          legalName: optionalText(formData, "legalName"),
+          fiscalAddress: optionalText(formData, "fiscalAddress"),
+          country: optionalText(formData, "country") || "España",
+          notes: optionalText(formData, "notes"),
+        }),
+    );
   } catch {
     return { ok: false as const, error: "Ya existe un proveedor con ese nombre." };
   }

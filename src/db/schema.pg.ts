@@ -69,6 +69,14 @@ export const suppliers = pgTable("suppliers", {
   contactName: text("contact_name"),
   email: text("email"),
   phone: text("phone"),
+  /** NIF/CIF */
+  taxId: text("tax_id"),
+  /** Razón social */
+  legalName: text("legal_name"),
+  /** Dirección fiscal */
+  fiscalAddress: text("fiscal_address"),
+  /** País */
+  country: text("country").default("España"),
   notes: text("notes"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: text("created_at")

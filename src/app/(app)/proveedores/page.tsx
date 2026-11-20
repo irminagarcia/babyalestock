@@ -15,8 +15,8 @@ export default async function SuppliersPage() {
       <div>
         <h1 className="font-display text-3xl">Proveedores</h1>
         <p className="text-muted-foreground">
-          Directorio básico para asociar productos. Ampliable en hitos
-          posteriores.
+          Alta de proveedores con contacto, datos fiscales y país. Luego podrá
+          asociarlos a productos y entradas.
         </p>
       </div>
 
@@ -24,7 +24,7 @@ export default async function SuppliersPage() {
 
       {rows.length === 0 ? (
         <p className="rounded-xl border bg-muted/40 px-4 py-8 text-sm text-muted-foreground">
-          No hay proveedores. Añada el primero con el formulario.
+          No hay proveedores. Añada el primero con el formulario de arriba.
         </p>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -48,6 +48,24 @@ export default async function SuppliersPage() {
                 <div>
                   <dt className="text-muted-foreground">Teléfono</dt>
                   <dd>{s.phone || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">NIF / CIF</dt>
+                  <dd>{s.taxId || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Razón social</dt>
+                  <dd>{s.legalName || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Dirección fiscal</dt>
+                  <dd className="whitespace-pre-wrap">
+                    {s.fiscalAddress || "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">País</dt>
+                  <dd>{s.country || "—"}</dd>
                 </div>
                 {s.notes && (
                   <div>
