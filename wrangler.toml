@@ -1,12 +1,22 @@
-# Cloudflare Workers (OpenNext). Deploy: npm run build && npx wrangler deploy
-# Free workers.dev / pages-style URL — no custom domain required.
-# Set secrets in the Cloudflare dashboard (never commit): DATABASE_URL
+# Cloudflare Workers (OpenNext) — NOT classic Pages.
+# Deploy: npm run build && npx wrangler deploy
+#
+# Live URL (free): https://babyalestock.<account-subdomain>.workers.dev
+#   → Workers & Pages → babyalestock → Domains / Triggers → workers.dev
+# Do NOT use https://babyalestock.pages.dev — that is a Pages hostname and
+# will 404 for this Worker deploy.
+#
+# Secrets in the Cloudflare dashboard (never commit): DATABASE_URL
 
 name = "babyalestock"
 main = ".open-next/worker.js"
 compatibility_date = "2026-11-20"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 upload_source_maps = true
+
+# Ensure the free workers.dev hostname is enabled for this Worker.
+workers_dev = true
+preview_urls = true
 
 [assets]
 directory = ".open-next/assets"
