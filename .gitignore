@@ -14,6 +14,11 @@
 # next.js
 /.next/
 /out/
+.open-next/
+
+# Cloudflare / OpenNext local secrets (DATABASE_URL for wrangler preview)
+.dev.vars
+.wrangler/
 
 # production
 /build
