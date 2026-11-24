@@ -12,16 +12,21 @@ export default async function NewProductPage({
   await requireUser();
   const params = await searchParams;
   const db = getDb();
+  // Same as /editar: never SELECT * on suppliers (fiscal columns may be absent).
   const cats = await db
-    .select()
+    .select({ id: categories.id, name: categories.name })
     .from(categories)
     .where(eq(categories.isActive, true));
   const subs = await db
-    .select()
+    .select({
+      id: subcategories.id,
+      name: subcategories.name,
+      categoryId: subcategories.categoryId,
+    })
     .from(subcategories)
     .where(eq(subcategories.isActive, true));
   const sups = await db
-    .select()
+    .select({ id: suppliers.id, name: suppliers.name })
     .from(suppliers)
     .where(eq(suppliers.isActive, true));
 
@@ -38,13 +43,9 @@ export default async function NewProductPage({
         <ProductForm
           returnTo="/productos/nuevo"
           initialError={params.error}
-          categories={cats.map((c) => ({ id: c.id, name: c.name }))}
-          subcategories={subs.map((s) => ({
-            id: s.id,
-            name: s.name,
-            categoryId: s.categoryId,
-          }))}
-          suppliers={sups.map((s) => ({ id: s.id, name: s.name }))}
+          categories={cats}
+          subcategories={subs}
+          suppliers={sups}
         />
       </div>
     </div>

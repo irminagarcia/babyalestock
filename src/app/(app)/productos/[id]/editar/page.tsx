@@ -28,16 +28,22 @@ export default async function EditProductPage({
   const product = await one(db.select().from(products).where(eq(products.id, id)));
   if (!product) notFound();
 
+  // Only id/name (+ subcategory categoryId): full supplier rows break when
+  // Neon is missing BA-22 fiscal columns (SELECT * → 500 on Workers).
   const cats = await db
-    .select()
+    .select({ id: categories.id, name: categories.name })
     .from(categories)
     .where(eq(categories.isActive, true));
   const subs = await db
-    .select()
+    .select({
+      id: subcategories.id,
+      name: subcategories.name,
+      categoryId: subcategories.categoryId,
+    })
     .from(subcategories)
     .where(eq(subcategories.isActive, true));
   const sups = await db
-    .select()
+    .select({ id: suppliers.id, name: suppliers.name })
     .from(suppliers)
     .where(eq(suppliers.isActive, true));
 
@@ -70,16 +76,33 @@ export default async function EditProductPage({
 
       <div className="rounded-xl border bg-card p-6">
         <ProductForm
-          initial={product}
+          initial={{
+            id: product.id,
+            name: product.name,
+            sku: product.sku,
+            barcode: product.barcode,
+            categoryId: product.categoryId,
+            subcategoryId: product.subcategoryId,
+            brand: product.brand,
+            variant: product.variant,
+            size: product.size,
+            color: product.color,
+            supplierId: product.supplierId,
+            purchaseCost: product.purchaseCost,
+            sellingPrice: product.sellingPrice,
+            currentStock: product.currentStock,
+            minStock: product.minStock,
+            storageLocation: product.storageLocation,
+            notes: product.notes,
+            usage: product.usage,
+            status: product.status,
+            photoPath: product.photoPath,
+          }}
           returnTo={returnTo}
           initialError={query.error}
-          categories={cats.map((c) => ({ id: c.id, name: c.name }))}
-          subcategories={subs.map((s) => ({
-            id: s.id,
-            name: s.name,
-            categoryId: s.categoryId,
-          }))}
-          suppliers={sups.map((s) => ({ id: s.id, name: s.name }))}
+          categories={cats}
+          subcategories={subs}
+          suppliers={sups}
         />
       </div>
     </div>
