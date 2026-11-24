@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { one } from "@/db/query";
-import { categories, products, subcategories, suppliers } from "@/db/schema";
+import { products } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { loadProductFormOptions } from "@/lib/product-form-options";
 import { ProductForm } from "@/components/product-form";
 import { StockCorrectionForm } from "@/components/stock-correction-form";
 
@@ -28,24 +29,8 @@ export default async function EditProductPage({
   const product = await one(db.select().from(products).where(eq(products.id, id)));
   if (!product) notFound();
 
-  // Only id/name (+ subcategory categoryId): full supplier rows break when
-  // Neon is missing BA-22 fiscal columns (SELECT * → 500 on Workers).
-  const cats = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(eq(categories.isActive, true));
-  const subs = await db
-    .select({
-      id: subcategories.id,
-      name: subcategories.name,
-      categoryId: subcategories.categoryId,
-    })
-    .from(subcategories)
-    .where(eq(subcategories.isActive, true));
-  const sups = await db
-    .select({ id: suppliers.id, name: suppliers.name })
-    .from(suppliers)
-    .where(eq(suppliers.isActive, true));
+  const { categories: cats, subcategories: subs, suppliers: sups } =
+    await loadProductFormOptions();
 
   const archived = product.status === "archived";
   const returnTo = `/productos/${id}/editar`;
