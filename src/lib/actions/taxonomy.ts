@@ -48,6 +48,8 @@ function optionalText(formData: FormData, key: string): string | null {
 
 export async function createSupplier(formData: FormData) {
   await requireUser();
+  const { ensureHostedSchema } = await import("@/db/ensure-hosted-schema");
+  await ensureHostedSchema();
   const name = String(formData.get("name") || "").trim();
   if (!name) return { ok: false as const, error: "El nombre es obligatorio." };
   try {
@@ -66,8 +68,19 @@ export async function createSupplier(formData: FormData) {
           notes: optionalText(formData, "notes"),
         }),
     );
-  } catch {
-    return { ok: false as const, error: "Ya existe un proveedor con ese nombre." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/unique|duplicate/i.test(msg)) {
+      return {
+        ok: false as const,
+        error: "Ya existe un proveedor con ese nombre.",
+      };
+    }
+    return {
+      ok: false as const,
+      error:
+        "No se pudo guardar el proveedor. Si acaba de desplegar, recargue y pruebe de nuevo.",
+    };
   }
   revalidatePath("/proveedores");
   revalidatePath("/productos");

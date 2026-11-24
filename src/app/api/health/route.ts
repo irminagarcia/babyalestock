@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, usingPostgres } from "@/db/client";
 import { one } from "@/db/query";
-import { users } from "@/db/schema";
+import { ensureHostedSchema } from "@/db/ensure-hosted-schema";
+import { suppliers, users } from "@/db/schema";
 import {
   isCloudflareWorkerRuntime,
   syncHostedDatabaseUrlFromBindings,
@@ -22,15 +23,23 @@ export async function GET() {
 
   let dbReachable: boolean | null = null;
   let dbError: string | undefined;
+  let supplierFiscalReady: boolean | null = null;
 
   if (hasDatabaseUrl) {
     try {
+      await ensureHostedSchema();
       const db = getDb();
       // Dialect-agnostic probe (LibSQL + Neon Drizzle handles).
       await one(db.select({ id: users.id }).from(users).limit(1));
+      // Prove proveedores SELECT * path (tax_id / legal_name / …).
+      await one(
+        db.select({ taxId: suppliers.taxId }).from(suppliers).limit(1),
+      );
+      supplierFiscalReady = true;
       dbReachable = true;
     } catch (err) {
       dbReachable = false;
+      supplierFiscalReady = false;
       const msg = err instanceof Error ? err.message : String(err);
       dbError = msg
         .replace(/postgresql:\/\/[^@\s]+@/gi, "postgresql://***@")
@@ -54,6 +63,7 @@ export async function GET() {
       dialect: usingPostgres() ? "postgres" : "sqlite",
       hasDatabaseUrl,
       dbReachable,
+      supplierFiscalReady,
       ...(dbError ? { dbError } : {}),
       tip: "If preview <version>-babyalestock.*.workers.dev works but babyalestock.*.workers.dev fails: Deployments → promote that Version ID to 100% production traffic. Do not Retry an old SHA.",
     },
