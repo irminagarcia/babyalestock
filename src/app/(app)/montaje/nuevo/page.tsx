@@ -3,7 +3,12 @@ import { listActiveBasketsForAssembly } from "@/lib/actions/assembly";
 import { Button } from "@/components/ui/button";
 import { AssembleForm } from "./assemble-form";
 
-export default async function NuevoMontajePage() {
+export default async function NuevoMontajePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const query = await searchParams;
   const baskets = await listActiveBasketsForAssembly();
 
   return (
@@ -21,7 +26,7 @@ export default async function NuevoMontajePage() {
           <Link href="/montaje">Historial</Link>
         </Button>
       </div>
-      <AssembleForm baskets={baskets} />
+      <AssembleForm baskets={baskets} initialError={query.error} />
     </div>
   );
 }

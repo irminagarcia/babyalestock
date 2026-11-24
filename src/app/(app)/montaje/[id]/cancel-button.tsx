@@ -1,39 +1,33 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { cancelAssembly } from "@/lib/actions/assembly";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 export function CancelAssemblyButton({ assemblyId }: { assemblyId: number }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const returnTo = `/montaje/${assemblyId}`;
 
   return (
-    <Button
-      variant="outline"
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          if (
-            !confirm(
-              "¿Anular este montaje? Se devolverán los componentes al stock con movimientos compensatorios y se excluirá de Rentabilidad → Registrado.",
-            )
-          ) {
-            return;
-          }
-          const result = await cancelAssembly(assemblyId);
-          if (result.error) {
-            toast.error(result.error);
-            return;
-          }
-          toast.success(result.success || "Montaje anulado.");
-          router.refresh();
-        })
-      }
+    <form
+      action="/api/assemblies/cancel"
+      method="post"
+      onSubmit={(e) => {
+        if (
+          !confirm(
+            "¿Anular este montaje? Se devolverán los componentes al stock con movimientos compensatorios y se excluirá de Rentabilidad → Registrado.",
+          )
+        ) {
+          e.preventDefault();
+          return;
+        }
+        setPending(true);
+      }}
     >
-      {pending ? "Anulando…" : "Anular montaje"}
-    </Button>
+      <input type="hidden" name="assemblyId" value={assemblyId} />
+      <input type="hidden" name="returnTo" value={returnTo} />
+      <Button variant="outline" type="submit" disabled={pending}>
+        {pending ? "Anulando…" : "Anular montaje"}
+      </Button>
+    </form>
   );
 }

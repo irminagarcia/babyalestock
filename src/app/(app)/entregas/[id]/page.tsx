@@ -9,6 +9,7 @@ import { formatEur } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeliveryForm } from "@/components/delivery-form";
+import { FlashMessage } from "@/components/flash-message";
 import { ConfirmDeliveryButtons } from "./confirm-buttons";
 import {
   Table,
@@ -27,11 +28,14 @@ const statusLabel: Record<string, string> = {
 
 export default async function DeliveryDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   await requireUser();
   const { id: idRaw } = await params;
+  const query = await searchParams;
   const id = Number(idRaw);
   if (!Number.isFinite(id)) notFound();
 
@@ -88,10 +92,17 @@ export default async function DeliveryDetailPage({
         )}
       </div>
 
+      <FlashMessage
+        error={delivery.status === "draft" ? undefined : query.error}
+        ok={query.ok}
+      />
+
       {delivery.status === "draft" ? (
         <DeliveryForm
           suppliers={supplierRows}
           products={productRows}
+          returnTo={`/entregas/${delivery.id}`}
+          initialError={query.error}
           initial={{
             id: delivery.id,
             supplierId: delivery.supplierId,

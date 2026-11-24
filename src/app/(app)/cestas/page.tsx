@@ -3,6 +3,7 @@ import { listBasketRecipes } from "@/lib/actions/baskets";
 import { formatEur } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FlashMessage } from "@/components/flash-message";
 import {
   Table,
   TableBody,
@@ -18,7 +19,12 @@ const statusLabel: Record<string, string> = {
   draft: "Borrador",
 };
 
-export default async function BasketsPage() {
+export default async function BasketsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; ok?: string }>;
+}) {
+  const query = await searchParams;
   const rows = await listBasketRecipes();
 
   return (
@@ -35,6 +41,8 @@ export default async function BasketsPage() {
           <Link href="/cestas/nueva">Nueva receta</Link>
         </Button>
       </div>
+
+      <FlashMessage error={query.error} ok={query.ok} />
 
       {rows.length === 0 ? (
         <div className="rounded-xl border bg-card px-4 py-10 text-center">

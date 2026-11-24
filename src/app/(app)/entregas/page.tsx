@@ -3,6 +3,7 @@ import { listDeliveries } from "@/lib/actions/deliveries";
 import { formatEur, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FlashMessage } from "@/components/flash-message";
 import {
   Table,
   TableBody,
@@ -23,7 +24,12 @@ const allocLabel: Record<string, string> = {
   by_quantity: "Por cantidad",
 };
 
-export default async function DeliveriesPage() {
+export default async function DeliveriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; ok?: string }>;
+}) {
+  const query = await searchParams;
   const rows = await listDeliveries();
 
   return (
@@ -40,6 +46,8 @@ export default async function DeliveriesPage() {
           <Link href="/entregas/nueva">Nueva entrega</Link>
         </Button>
       </div>
+
+      <FlashMessage error={query.error} ok={query.ok} />
 
       {rows.length === 0 ? (
         <div className="rounded-xl border bg-card px-4 py-10 text-center">

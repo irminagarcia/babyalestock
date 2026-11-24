@@ -18,7 +18,12 @@ import {
 export default async function MovementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ producto?: string; tipo?: string }>;
+  searchParams: Promise<{
+    producto?: string;
+    tipo?: string;
+    error?: string;
+    ok?: string;
+  }>;
 }) {
   await requireUser();
   const params = await searchParams;
@@ -63,6 +68,8 @@ export default async function MovementsPage({
             products={productOptions}
             defaultProductId={params.producto}
             defaultType={params.tipo}
+            initialError={params.error}
+            initialOk={params.ok}
           />
         )}
       </section>

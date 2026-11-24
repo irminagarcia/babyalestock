@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { confirmAssembly, previewAssembly } from "@/lib/actions/assembly";
+import { previewAssembly } from "@/lib/actions/assembly";
 import type { AssemblyPreview } from "@/lib/assembly";
 import { formatEur, formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FlashMessage } from "@/components/flash-message";
 import {
   Table,
   TableBody,
@@ -34,9 +34,15 @@ function newIdempotencyKey() {
   return `asm-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function AssembleForm({ baskets }: { baskets: BasketOption[] }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+export function AssembleForm({
+  baskets,
+  initialError,
+}: {
+  baskets: BasketOption[];
+  initialError?: string;
+}) {
+  const [previewPending, startPreview] = useTransition();
+  const [confirmPending, setConfirmPending] = useState(false);
   const [basketId, setBasketId] = useState(
     baskets[0] ? String(baskets[0].id) : "",
   );
@@ -52,7 +58,7 @@ export function AssembleForm({ baskets }: { baskets: BasketOption[] }) {
   );
 
   function runPreview() {
-    startTransition(async () => {
+    startPreview(async () => {
       const result = await previewAssembly({
         basketId: Number(basketId),
         quantity: Math.floor(Number(quantity) || 0),
@@ -76,28 +82,6 @@ export function AssembleForm({ baskets }: { baskets: BasketOption[] }) {
     });
   }
 
-  function runConfirm() {
-    startTransition(async () => {
-      const fd = new FormData();
-      fd.set("basketId", basketId);
-      fd.set("quantity", quantity);
-      fd.set("assemblyMode", mode);
-      fd.set("notes", notes);
-      fd.set("idempotencyKey", idempotencyKey);
-      const result = await confirmAssembly({}, fd);
-      if (result.error) {
-        toast.error(result.error);
-        if (result.preview) setPreview(result.preview);
-        return;
-      }
-      toast.success(result.success || "Montaje registrado.");
-      if (result.assemblyId) {
-        router.push(`/montaje/${result.assemblyId}`);
-        router.refresh();
-      }
-    });
-  }
-
   if (baskets.length === 0) {
     return (
       <p className="rounded-xl border bg-muted/40 px-4 py-8 text-center text-sm">
@@ -110,8 +94,31 @@ export function AssembleForm({ baskets }: { baskets: BasketOption[] }) {
     );
   }
 
+  const pending = previewPending || confirmPending;
+
   return (
-    <div className="space-y-6">
+    <form
+      action="/api/assemblies/confirm"
+      method="post"
+      className="space-y-6"
+      onSubmit={(e) => {
+        if (!preview?.canConfirm) {
+          e.preventDefault();
+          toast.error("Haga primero una vista previa válida.");
+          return;
+        }
+        setConfirmPending(true);
+      }}
+    >
+      <input type="hidden" name="returnTo" value="/montaje/nuevo" />
+      <input type="hidden" name="basketId" value={basketId} />
+      <input type="hidden" name="quantity" value={quantity} />
+      <input type="hidden" name="assemblyMode" value={mode} />
+      <input type="hidden" name="notes" value={notes} />
+      <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
+
+      <FlashMessage error={initialError} />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="basketId">Receta</Label>
@@ -160,7 +167,7 @@ export function AssembleForm({ baskets }: { baskets: BasketOption[] }) {
             <label className="flex items-center gap-2">
               <input
                 type="radio"
-                name="mode"
+                name="modeUi"
                 checked={mode === "preassembled"}
                 onChange={() => {
                   setMode("preassembled");
@@ -172,7 +179,7 @@ export function AssembleForm({ baskets }: { baskets: BasketOption[] }) {
             <label className="flex items-center gap-2">
               <input
                 type="radio"
-                name="mode"
+                name="modeUi"
                 checked={mode === "mto"}
                 onChange={() => {
                   setMode("mto");
@@ -201,14 +208,10 @@ export function AssembleForm({ baskets }: { baskets: BasketOption[] }) {
           disabled={pending}
           onClick={runPreview}
         >
-          {pending ? "Calculando…" : "Vista previa de consumo"}
+          {previewPending ? "Calculando…" : "Vista previa de consumo"}
         </Button>
-        <Button
-          type="button"
-          disabled={pending || !preview?.canConfirm}
-          onClick={runConfirm}
-        >
-          {pending ? "Confirmando…" : "Confirmar montaje"}
+        <Button type="submit" disabled={pending || !preview?.canConfirm}>
+          {confirmPending ? "Confirmando…" : "Confirmar montaje"}
         </Button>
       </div>
 
@@ -285,6 +288,6 @@ export function AssembleForm({ baskets }: { baskets: BasketOption[] }) {
           </Table>
         </div>
       )}
-    </div>
+    </form>
   );
 }

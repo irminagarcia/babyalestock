@@ -1,13 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { saveBasketRecipe, type BasketFormState } from "@/lib/actions/baskets";
+import { FlashMessage } from "@/components/flash-message";
 import { estimateBasketCost, resolveUnitCost } from "@/lib/basket-cost";
 import { formatEur } from "@/lib/utils";
 import { usageLabels } from "@/lib/labels";
@@ -28,8 +26,6 @@ type LineState = {
   quantity: string;
 };
 
-const initialState: BasketFormState = {};
-
 function newLine(): LineState {
   return { key: crypto.randomUUID(), productId: "", quantity: "1" };
 }
@@ -37,6 +33,8 @@ function newLine(): LineState {
 export function BasketForm({
   products,
   initial,
+  returnTo,
+  initialError,
 }: {
   products: ProductOption[];
   initial?: {
@@ -49,12 +47,10 @@ export function BasketForm({
     status: string;
     components: { productId: number; quantity: number }[];
   };
+  returnTo: string;
+  initialError?: string;
 }) {
-  const router = useRouter();
-  const [state, formAction, pending] = useActionState(
-    saveBasketRecipe,
-    initialState,
-  );
+  const [pending, setPending] = useState(false);
   const [lines, setLines] = useState<LineState[]>(() =>
     initial?.components?.length
       ? initial.components.map((c) => ({
@@ -98,15 +94,6 @@ export function BasketForm({
     return estimateBasketCost(comps, sell);
   }, [lines, sellingPrice, byId]);
 
-  useEffect(() => {
-    if (state?.error) toast.error(state.error);
-    if (state?.success && state.basketId) {
-      toast.success(state.success);
-      router.push(`/cestas/${state.basketId}`);
-      router.refresh();
-    }
-  }, [state, router]);
-
   const componentsJson = JSON.stringify(
     lines.map((l) => ({
       productId: Number(l.productId),
@@ -114,10 +101,23 @@ export function BasketForm({
     })),
   );
 
+  const cancelHref = initial?.id ? `/cestas/${initial.id}` : "/cestas";
+
   return (
-    <form action={formAction} className="space-y-6">
+    <form
+      action="/api/baskets/upsert"
+      method="post"
+      className="space-y-6"
+      onSubmit={(e) => {
+        if (!e.currentTarget.checkValidity()) return;
+        setPending(true);
+      }}
+    >
       {initial?.id && <input type="hidden" name="id" value={initial.id} />}
+      <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="componentsJson" value={componentsJson} />
+
+      <FlashMessage error={initialError} />
 
       <section className="grid gap-4 rounded-xl border bg-card p-5 md:grid-cols-2">
         <h2 className="font-display text-xl md:col-span-2">Datos de la receta</h2>
@@ -341,12 +341,8 @@ export function BasketForm({
         <Button type="submit" disabled={pending}>
           {pending ? "Guardando…" : "Guardar receta"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push("/cestas")}
-        >
-          Cancelar
+        <Button type="button" variant="outline" disabled={pending} asChild>
+          <a href={cancelHref}>Cancelar</a>
         </Button>
       </div>
     </form>

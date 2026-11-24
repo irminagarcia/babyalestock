@@ -1,6 +1,11 @@
 import { CsvPanel } from "./csv-panel";
 
-export default function CsvPage() {
+export default async function CsvPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; ok?: string; report?: string }>;
+}) {
+  const query = await searchParams;
   return (
     <div className="space-y-6">
       <div>
@@ -10,7 +15,11 @@ export default function CsvPage() {
           español).
         </p>
       </div>
-      <CsvPanel />
+      <CsvPanel
+        initialError={query.error}
+        initialOk={query.ok}
+        initialReport={query.report}
+      />
     </div>
   );
 }

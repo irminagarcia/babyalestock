@@ -4,8 +4,13 @@ import { requireUser } from "@/lib/auth";
 import { SupplierForm } from "./supplier-form";
 import { Badge } from "@/components/ui/badge";
 
-export default async function SuppliersPage() {
+export default async function SuppliersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; ok?: string }>;
+}) {
   await requireUser();
+  const query = await searchParams;
   const rows = (
     await getDb().select().from(suppliers)
   ).sort((a, b) => a.name.localeCompare(b.name, "es"));
@@ -20,7 +25,7 @@ export default async function SuppliersPage() {
         </p>
       </div>
 
-      <SupplierForm />
+      <SupplierForm initialError={query.error} initialOk={query.ok} />
 
       {rows.length === 0 ? (
         <p className="rounded-xl border bg-muted/40 px-4 py-8 text-sm text-muted-foreground">

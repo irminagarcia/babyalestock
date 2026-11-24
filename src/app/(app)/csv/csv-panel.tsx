@@ -1,16 +1,22 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { importProductsCsv } from "@/lib/actions/csv-import";
+import { FlashMessage } from "@/components/flash-message";
 import { productCsvHeaders } from "@/lib/csv";
 
-export function CsvPanel() {
-  const [pending, startTransition] = useTransition();
-  const [report, setReport] = useState<string | null>(null);
+export function CsvPanel({
+  initialError,
+  initialOk,
+  initialReport,
+}: {
+  initialError?: string;
+  initialOk?: string;
+  initialReport?: string;
+}) {
+  const [pending, setPending] = useState(false);
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -33,29 +39,18 @@ export function CsvPanel() {
           casilla de inventariar para fijar también el stock al coincidir por
           SKU. Categorías, subcategorías y proveedores se crean si faltan.
         </p>
+        <FlashMessage error={initialError} ok={initialOk} />
         <form
+          action="/api/csv/import"
+          method="post"
+          encType="multipart/form-data"
           className="space-y-3"
           onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            startTransition(async () => {
-              const result = await importProductsCsv(fd);
-              if (!result.ok) {
-                toast.error(result.error);
-                setReport(null);
-                return;
-              }
-              toast.success(
-                `Importación terminada: ${result.created} creados, ${result.updated} actualizados.`,
-              );
-              setReport(
-                result.errors.length
-                  ? `Avisos:\n${result.errors.slice(0, 20).join("\n")}`
-                  : "Sin errores.",
-              );
-            });
+            if (!e.currentTarget.checkValidity()) return;
+            setPending(true);
           }}
         >
+          <input type="hidden" name="returnTo" value="/csv" />
           <div className="space-y-2">
             <Label htmlFor="file">Archivo CSV</Label>
             <Input id="file" name="file" type="file" accept=".csv,text/csv" required />
@@ -77,9 +72,9 @@ export function CsvPanel() {
             {pending ? "Importando…" : "Importar"}
           </Button>
         </form>
-        {report && (
+        {initialReport && (
           <pre className="overflow-auto rounded-md bg-muted p-3 text-xs whitespace-pre-wrap">
-            {report}
+            {initialReport}
           </pre>
         )}
       </section>

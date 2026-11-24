@@ -1,15 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useId, useState } from "react";
-import { toast } from "sonner";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  recordMovementAction,
-  type MovementFormState,
-} from "@/lib/actions/movements";
+import { FlashMessage } from "@/components/flash-message";
 
 type ProductOption = {
   id: number;
@@ -27,42 +23,43 @@ const types = [
   { value: "manual_correction", label: "Corrección manual (+/−)" },
 ];
 
-const initial: MovementFormState = {};
-
 export function MovementForm({
   products,
   defaultProductId,
   defaultType,
+  initialError,
+  initialOk,
 }: {
   products: ProductOption[];
   defaultProductId?: string;
   defaultType?: string;
+  initialError?: string;
+  initialOk?: string;
 }) {
-  const [state, formAction, pending] = useActionState(
-    recordMovementAction,
-    initial,
-  );
-  const [idempotencyKey, setIdempotencyKey] = useState(() =>
-    crypto.randomUUID(),
-  );
+  const [pending, setPending] = useState(false);
+  const [idempotencyKey] = useState(() => crypto.randomUUID());
   const keyField = useId();
 
-  useEffect(() => {
-    if (state?.error) toast.error(state.error);
-    if (state?.success) {
-      toast.success(state.success);
-      setIdempotencyKey(crypto.randomUUID());
-    }
-  }, [state]);
-
   return (
-    <form action={formAction} className="grid gap-4 md:grid-cols-2">
+    <form
+      action="/api/movements/record"
+      method="post"
+      className="grid gap-4 md:grid-cols-2"
+      onSubmit={(e) => {
+        if (!e.currentTarget.checkValidity()) return;
+        setPending(true);
+      }}
+    >
+      <input type="hidden" name="returnTo" value="/movimientos" />
       <input
         type="hidden"
         name="idempotencyKey"
         id={keyField}
         value={idempotencyKey}
       />
+      <div className="md:col-span-2">
+        <FlashMessage error={initialError} ok={initialOk} />
+      </div>
       <div className="space-y-2 md:col-span-2">
         <Label htmlFor="productId">Producto *</Label>
         <select
@@ -125,16 +122,6 @@ export function MovementForm({
         <Label htmlFor="reason">Motivo / nota</Label>
         <Textarea id="reason" name="reason" rows={2} />
       </div>
-      {state?.error && (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive md:col-span-2">
-          {state.error}
-        </p>
-      )}
-      {state?.success && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-900 md:col-span-2">
-          {state.success}
-        </p>
-      )}
       <div className="md:col-span-2">
         <Button type="submit" disabled={pending || products.length === 0}>
           {pending ? "Guardando…" : "Registrar movimiento"}
