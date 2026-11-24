@@ -73,9 +73,9 @@ export async function GET() {
       supplierFiscalReady,
       gitSha,
       // Bump when shipping Workers fixes — confirms tip is live vs stale deploy.
-      codeStamp: "ba31-final-v1",
+      codeStamp: "ba31-admin-alta-v2",
       ...(dbError ? { dbError } : {}),
-      tip: "After merge: Cloudflare → babyalestock → Deployments → Retry tip of main (not an old SHA). Expect codeStamp ba31-final-v1 + hasDatabaseUrl/dbReachable true. Soft Link HTML looks like <a>; trust codeStamp.",
+      tip: "After merge: Cloudflare → babyalestock → Deployments → Retry tip of main. Expect codeStamp ba31-admin-alta-v2 + hasDatabaseUrl/dbReachable true. Admin user must see Cuenta → Administración → Alta.",
     },
     { status: ok ? 200 : 503 },
   );

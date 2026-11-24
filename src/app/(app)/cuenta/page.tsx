@@ -78,10 +78,12 @@ export default async function CuentaPage({
 
       {admin && (
         <>
-          <div>
+          <div id="administracion">
             <h2 className="font-display text-2xl">Administración</h2>
             <p className="text-sm text-muted-foreground">
-              Alta de usuarios de tienda, listado y restablecer contraseñas.
+              Más abajo: listado, <strong>Alta de usuario de tienda</strong> y
+              restablecer contraseñas. Solo visible con cuenta de administración
+              (usuario <code>admin</code>).
             </p>
           </div>
           <AdminUsersList
