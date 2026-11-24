@@ -56,7 +56,7 @@ export default async function ProductsPage({
           </p>
         </div>
         <Button asChild>
-          <Link href="/productos/nuevo">Añadir producto</Link>
+          <a href="/productos/nuevo">Añadir producto</a>
         </Button>
       </div>
 
@@ -71,7 +71,7 @@ export default async function ProductsPage({
             Pruebe a limpiar los filtros o añada un producto nuevo.
           </p>
           <Button asChild className="mt-4">
-            <Link href="/productos/nuevo">Añadir producto</Link>
+            <a href="/productos/nuevo">Añadir producto</a>
           </Button>
         </div>
       ) : (

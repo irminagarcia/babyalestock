@@ -137,7 +137,8 @@ export default async function ProductDetailPage({
             </Link>
           </Button>
           <Button asChild>
-            <Link href={`/productos/${product.id}/editar`}>Editar</Link>
+            {/* Hard navigation: soft Link to /editar fails on OpenNext Workers */}
+            <a href={`/productos/${product.id}/editar`}>Editar</a>
           </Button>
           <ArchiveButtons
             productId={product.id}

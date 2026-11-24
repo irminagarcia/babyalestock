@@ -216,7 +216,7 @@ export default async function PanelPage() {
 
       <div className="flex flex-wrap gap-3">
         <Button asChild>
-          <Link href="/productos/nuevo">Añadir producto</Link>
+          <a href="/productos/nuevo">Añadir producto</a>
         </Button>
         <Button asChild variant="secondary">
           <Link href="/entregas/nueva">Entrada de proveedor</Link>
