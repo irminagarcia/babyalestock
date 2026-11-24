@@ -58,13 +58,15 @@ function createNeonDb(): NeonDb {
   }
 
   // Required on Cloudflare Workers / workerd for neon-serverless Pool.
+  // Use the runtime WebSocket (nodejs_compat / workerd) — do NOT pull Node `ws`.
   if (typeof WebSocket !== "undefined") {
     neonConfig.webSocketConstructor = WebSocket;
   }
-  // Avoid Node `ws` package resolution that can break in the Workers bundle.
-  neonConfig.poolQueryViaFetch = true;
-
-  const pool = new Pool({ connectionString });
+  // IMPORTANT: do not set poolQueryViaFetch=true. Fetch/HTTP mode cannot run
+  // interactive transactions (stock movements, category/product deletes). That
+  // caused live "error but write stuck / succeeded oddly" bugs on Workers.
+  // maxUses:1 avoids CF Workers Pool client-reuse hangs while keeping WebSockets.
+  const pool = new Pool({ connectionString, maxUses: 1 });
   neonPool = pool;
   return drizzle(pool, { schema: pgSchema });
 }

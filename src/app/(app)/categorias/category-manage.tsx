@@ -159,6 +159,7 @@ export function CategoryManage({
           <form
             action="/api/categories/delete"
             method="post"
+            // Native document POST → API 303 (Workers-safe; no soft nav).
             onSubmit={() => setPending(true)}
           >
             <input type="hidden" name="categoryId" value={categoryId} />

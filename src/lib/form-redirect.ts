@@ -34,6 +34,29 @@ export function redirectWithParams(
   return NextResponse.redirect(url, { status: 303 });
 }
 
+/** Map driver / infra noise to Spanish UI copy (never leak neon-http jargon). */
+export function spanishMutationError(
+  err: unknown,
+  fallbackMessage: string,
+): string {
+  if (!(err instanceof Error) || !err.message || err.message === "UNAUTHORIZED") {
+    return fallbackMessage;
+  }
+  const msg = err.message;
+  if (/UNAUTHORIZED/i.test(msg)) return fallbackMessage;
+  if (/no transactions support|neon-http|poolQueryViaFetch/i.test(msg)) {
+    return "No se pudo completar la operación en la base de datos. Recargue la página e inténtelo de nuevo.";
+  }
+  if (/fetch failed|network|ECONN|timeout|WebSocket/i.test(msg)) {
+    return "No hay conexión con la base de datos. Espere un momento y vuelva a intentarlo.";
+  }
+  // Prefer short Spanish app errors; hide long stack-like driver text.
+  if (msg.length > 180 || /at\s+\S+\s+\(/.test(msg)) {
+    return fallbackMessage;
+  }
+  return msg;
+}
+
 /** Catch UNAUTHORIZED / generic errors; rethrow Next redirects. */
 export function catchMutation(
   request: Request,
@@ -45,9 +68,7 @@ export function catchMutation(
   if (err instanceof Error && err.message === "UNAUTHORIZED") {
     return redirect303(request, "/login");
   }
-  const message =
-    err instanceof Error && err.message && err.message !== "UNAUTHORIZED"
-      ? err.message
-      : fallbackMessage;
-  return redirectWithParams(request, returnTo, { error: message });
+  return redirectWithParams(request, returnTo, {
+    error: spanishMutationError(err, fallbackMessage),
+  });
 }

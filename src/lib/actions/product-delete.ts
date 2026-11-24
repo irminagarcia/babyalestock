@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { count, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { one, withTransaction } from "@/db/query";
@@ -15,6 +14,7 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { getPhotosDir } from "@/lib/paths";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -93,9 +93,10 @@ export async function assessProductDelete(
   const blockers: string[] = [];
   const warnings: string[] = [];
 
-  if (product.currentStock !== 0) {
+  const stockNow = Number(product.currentStock);
+  if (!Number.isFinite(stockNow) || stockNow !== 0) {
     blockers.push(
-      `Hay ${product.currentStock} unidad(es) en stock. Ponga las existencias a 0 (corrección o salida) antes de eliminar.`,
+      `Hay ${Number.isFinite(stockNow) ? stockNow : product.currentStock} unidad(es) en stock. Ponga las existencias a 0 (corrección o salida) antes de eliminar.`,
     );
   }
   if (deliveryLineCount > 0) {
@@ -134,7 +135,7 @@ export async function assessProductDelete(
     ok: true,
     productId,
     name: product.name,
-    currentStock: product.currentStock,
+    currentStock: Number(product.currentStock) || 0,
     movementCount,
     basketComponentCount,
     deliveryLineCount,
@@ -179,7 +180,7 @@ export async function deleteProduct(
   }
 
   // Re-check stock inside the transaction window
-  if (product.currentStock !== 0) {
+  if (Number(product.currentStock) !== 0) {
     return {
       ok: false,
       error:
@@ -236,9 +237,6 @@ export async function deleteProduct(
     }
   }
 
-  revalidatePath("/productos");
-  revalidatePath("/panel");
-  revalidatePath("/movimientos");
-  revalidatePath("/cestas");
+  safeRevalidate("/productos", "/panel", "/movimientos", "/cestas");
   return { ok: true, name: product.name };
 }
