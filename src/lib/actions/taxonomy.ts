@@ -1,11 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { count, eq, inArray, or } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { exec, one, withTransaction } from "@/db/query";
 import { categories, products, subcategories, suppliers } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 
 export async function createCategory(formData: FormData) {
   await requireUser();
@@ -17,8 +17,7 @@ export async function createCategory(formData: FormData) {
   } catch {
     return { ok: false as const, error: "Ya existe una categoría con ese nombre." };
   }
-  revalidatePath("/categorias");
-  revalidatePath("/productos");
+  safeRevalidate("/categorias", "/productos");
   return { ok: true as const };
 }
 
@@ -69,8 +68,7 @@ export async function updateCategory(
     };
   }
 
-  revalidatePath("/categorias");
-  revalidatePath("/productos");
+  safeRevalidate("/categorias", "/productos");
   return { ok: true, name };
 }
 
@@ -167,6 +165,10 @@ export type DeleteCategoryResult =
 /**
  * Permanently delete a category when no products reference it (or its
  * subcategories). Subcategories cascade away; products are never orphaned.
+ *
+ * Prefer a real transaction (Neon WebSocket Pool). If the driver rejects
+ * interactive transactions, fall back to ordered deletes — assessment already
+ * guarantees no product FKs, so this cannot orphan catalog rows.
  */
 export async function deleteCategory(
   categoryId: number,
@@ -186,16 +188,38 @@ export async function deleteCategory(
     };
   }
 
-  await withTransaction(async (tx) => {
-    // Explicit sub delete keeps SQLite/Postgres behavior aligned; PG also cascades.
-    await tx
-      .delete(subcategories)
-      .where(eq(subcategories.categoryId, categoryId));
-    await tx.delete(categories).where(eq(categories.id, categoryId));
-  });
+  try {
+    await withTransaction(async (tx) => {
+      // Explicit sub delete keeps SQLite/Postgres behavior aligned; PG also cascades.
+      await tx
+        .delete(subcategories)
+        .where(eq(subcategories.categoryId, categoryId));
+      await tx.delete(categories).where(eq(categories.id, categoryId));
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Neon HTTP / fetch Pool cannot BEGIN — still safe to delete in order.
+    if (/no transactions support|neon-http|poolQueryViaFetch/i.test(msg)) {
+      await exec(
+        getDb()
+          .delete(subcategories)
+          .where(eq(subcategories.categoryId, categoryId)),
+      );
+      await exec(
+        getDb().delete(categories).where(eq(categories.id, categoryId)),
+      );
+    } else if (/foreign key|violates foreign key/i.test(msg)) {
+      return {
+        ok: false,
+        error:
+          "Hay productos vinculados a esta categoría o sus subcategorías. Reasígnelos o elimínelos antes de borrar.",
+      };
+    } else {
+      throw err;
+    }
+  }
 
-  revalidatePath("/categorias");
-  revalidatePath("/productos");
+  safeRevalidate("/categorias", "/productos");
   return { ok: true, name: assessment.name };
 }
 
@@ -214,8 +238,7 @@ export async function createSubcategory(formData: FormData) {
       error: "Ya existe esa subcategoría en la categoría.",
     };
   }
-  revalidatePath("/categorias");
-  revalidatePath("/productos");
+  safeRevalidate("/categorias", "/productos");
   return { ok: true as const };
 }
 
@@ -259,8 +282,7 @@ export async function createSupplier(formData: FormData) {
         "No se pudo guardar el proveedor. Si acaba de desplegar, recargue y pruebe de nuevo.",
     };
   }
-  revalidatePath("/proveedores");
-  revalidatePath("/productos");
+  safeRevalidate("/proveedores", "/productos");
   return { ok: true as const };
 }
 
@@ -272,7 +294,7 @@ export async function toggleCategory(id: number, isActive: boolean) {
       .set({ isActive })
       .where(eq(categories.id, id)),
   );
-  revalidatePath("/categorias");
+  safeRevalidate("/categorias");
   return { ok: true as const };
 }
 
@@ -284,6 +306,6 @@ export async function toggleSupplier(id: number, isActive: boolean) {
       .set({ isActive })
       .where(eq(suppliers.id, id)),
   );
-  revalidatePath("/proveedores");
+  safeRevalidate("/proveedores");
   return { ok: true as const };
 }

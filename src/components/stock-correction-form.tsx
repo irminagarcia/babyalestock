@@ -32,6 +32,7 @@ export function StockCorrectionForm({
     <form
       action="/api/products/correct-stock"
       method="post"
+      // Native document POST → API 303 (no soft nav / router.refresh).
       className="space-y-4"
       onSubmit={(e) => {
         if (!e.currentTarget.checkValidity()) return;

@@ -1,11 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { one } from "@/db/query";
 import { products } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { spanishMutationError } from "@/lib/form-redirect";
+import { safeRevalidate } from "@/lib/safe-revalidate";
 import { createStockMovement } from "@/lib/stock";
 
 export type StockCorrectionResult =
@@ -32,7 +33,7 @@ export async function correctProductStock(
   const newStock = parseNonNegativeInt(formData.get("newStock"));
   const reason = String(formData.get("reason") ?? "").trim();
 
-  if (!Number.isFinite(productId)) {
+  if (!Number.isFinite(productId) || productId <= 0) {
     return { ok: false, error: "Producto no válido." };
   }
   if (newStock === null) {
@@ -61,12 +62,21 @@ export async function correctProductStock(
     };
   }
 
-  const delta = newStock - product.currentStock;
+  // Neon/drivers can occasionally surface numerics oddly — coerce before math.
+  const currentStock = Number(product.currentStock);
+  if (!Number.isFinite(currentStock)) {
+    return {
+      ok: false,
+      error: "No se pudo leer las existencias actuales. Recargue e inténtelo de nuevo.",
+    };
+  }
+
+  const delta = newStock - currentStock;
   if (delta === 0) {
     return {
       ok: true,
       productId,
-      stockAfter: product.currentStock,
+      stockAfter: currentStock,
       unchanged: true,
     };
   }
@@ -82,14 +92,22 @@ export async function correctProductStock(
   });
 
   if (!result.ok) {
-    return { ok: false, error: result.error };
+    return {
+      ok: false,
+      error: spanishMutationError(
+        new Error(result.error),
+        "No se pudo corregir el stock.",
+      ),
+    };
   }
 
-  revalidatePath("/productos");
-  revalidatePath(`/productos/${productId}`);
-  revalidatePath(`/productos/${productId}/editar`);
-  revalidatePath("/movimientos");
-  revalidatePath("/panel");
+  safeRevalidate(
+    "/productos",
+    `/productos/${productId}`,
+    `/productos/${productId}/editar`,
+    "/movimientos",
+    "/panel",
+  );
 
   return {
     ok: true,

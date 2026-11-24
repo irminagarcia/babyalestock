@@ -53,7 +53,7 @@ async function runEnsure(): Promise<{
     return { supplierFiscal: false, userRole: false };
   }
 
-  // Same neon-serverless Pool path as getDb() — works on Workers.
+  // DDL-only: HTTP fetch is fine here (no interactive transactions).
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Pool, neonConfig } =
     require("@neondatabase/serverless") as typeof import("@neondatabase/serverless");
@@ -62,7 +62,7 @@ async function runEnsure(): Promise<{
   }
   neonConfig.poolQueryViaFetch = true;
 
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({ connectionString, maxUses: 1 });
   try {
     for (const statement of ENSURE_STATEMENTS) {
       await pool.query(statement);

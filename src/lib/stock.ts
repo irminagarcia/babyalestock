@@ -80,7 +80,12 @@ export async function createStockMovement(
     }
 
     const delta = movementDelta(input.type, input.quantity);
-    const stockBefore = product.currentStock;
+    const stockBefore = Number(product.currentStock);
+    if (!Number.isFinite(stockBefore)) {
+      throw new Error(
+        "No se pudo leer las existencias actuales. Recargue e inténtelo de nuevo.",
+      );
+    }
     const stockAfter = stockBefore + delta;
 
     if (stockAfter < 0) {
@@ -127,9 +132,23 @@ export async function createStockMovement(
   };
 
   try {
-    const result = input.skipTransaction
-      ? await run(input.tx ?? db)
-      : await db.transaction(async (tx) => run(tx));
+    let result: { movementId: number; stockAfter: number; stockBefore: number };
+    if (input.skipTransaction) {
+      result = await run(input.tx ?? db);
+    } else {
+      try {
+        result = await db.transaction(async (tx) => run(tx));
+      } catch (txErr) {
+        const txMsg = txErr instanceof Error ? txErr.message : String(txErr);
+        // Last resort on misconfigured HTTP Pool: still apply the correction so
+        // Irmina can zero stock and delete products. Prefer WebSocket Pool.
+        if (/no transactions support|neon-http|poolQueryViaFetch/i.test(txMsg)) {
+          result = await run(db);
+        } else {
+          throw txErr;
+        }
+      }
+    }
 
     return {
       ok: true,
@@ -154,6 +173,13 @@ export async function createStockMovement(
           duplicate: true,
         };
       }
+    }
+    if (/no transactions support|neon-http|poolQueryViaFetch/i.test(message)) {
+      return {
+        ok: false,
+        error:
+          "No se pudo completar la corrección de stock. Recargue la página e inténtelo de nuevo.",
+      };
     }
     return { ok: false, error: message };
   }
