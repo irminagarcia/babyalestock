@@ -4,6 +4,7 @@ import {
   getDatabaseUrl,
   syncHostedDatabaseUrlFromBindings,
   isCloudflareWorkerRuntime,
+  MISSING_DATABASE_URL_HINT,
 } from "./dialect";
 import * as sqliteSchema from "./schema.sqlite";
 import * as pgSchema from "./schema.pg";
@@ -23,15 +24,10 @@ let dbInstance: Db | null = null;
 let libsqlClient: { close: () => void } | null = null;
 let neonPool: { end: () => Promise<void> } | null = null;
 
-const WORKERS_DB_HINT =
-  "Falta el secreto DATABASE_URL (Neon) en el Worker. Cloudflare → babyalestock → Settings → Variables and Secrets → Production → DATABASE_URL. Luego Deploy latest main (no uses Retry de un deploy viejo). Mientras tanto: Versions → rollback a 50d1c6e9.";
-
 function createSqliteDb(): LibsqlDb {
-  // Hard gate: never invoke libsql createClient on workerd (crash: _createClient3).
   if (isCloudflareWorkerRuntime()) {
-    throw new Error(WORKERS_DB_HINT);
+    throw new Error(MISSING_DATABASE_URL_HINT);
   }
-  // Lazy require so Cloudflare Workers bundles do not pull native libsql at init.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { createClient } = require("@libsql/client") as typeof import("@libsql/client");
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -54,14 +50,12 @@ function createNeonDb(): NeonDb {
 
   const connectionString = getDatabaseUrl();
   if (!connectionString) {
-    throw new Error(WORKERS_DB_HINT);
+    throw new Error(MISSING_DATABASE_URL_HINT);
   }
 
-  // Required on Cloudflare Workers / workerd for neon-serverless Pool.
   if (typeof WebSocket !== "undefined") {
     neonConfig.webSocketConstructor = WebSocket;
   }
-  // Avoid Node `ws` package resolution that can break in the Workers bundle.
   neonConfig.poolQueryViaFetch = true;
 
   const pool = new Pool({ connectionString });
@@ -72,7 +66,6 @@ function createNeonDb(): NeonDb {
 export function getDb(): Db {
   if (!dbInstance) {
     syncHostedDatabaseUrlFromBindings();
-    // Workers → always Neon. Local without DATABASE_URL → SQLite.
     if (isPostgres() || isCloudflareWorkerRuntime()) {
       dbInstance = createNeonDb() as unknown as Db;
     } else {

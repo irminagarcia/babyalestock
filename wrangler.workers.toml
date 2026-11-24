@@ -3,11 +3,11 @@
 # Deploy: npx wrangler deploy -c wrangler.workers.toml
 #
 # Live URL: https://babyalestock.<account-subdomain>.workers.dev
-# Secrets in the dashboard (Production runtime + build): DATABASE_URL
 #
-# If preview https://<version>-babyalestock.<subdomain>.workers.dev works but the
-# prod hostname fails: Deployments → select the good Version ID → Promote /
-# set traffic 100% on that version (do not Retry an old SHA).
+# DATABASE_URL must be a Worker RUNTIME secret (dashboard):
+#   Settings → Variables and Secrets → Production → Secret DATABASE_URL
+# Build-only vars and Previews Base alone do NOT bind into main / version
+# preview URLs of a main deploy. After adding the secret, redeploy main tip.
 
 name = "babyalestock"
 main = ".open-next/worker.js"
