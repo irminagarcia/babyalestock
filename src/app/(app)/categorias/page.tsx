@@ -1,8 +1,11 @@
 import { getDb } from "@/db/client";
 import { categories, subcategories } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { assessCategoryDelete } from "@/lib/actions/taxonomy";
 import { CategoryForms } from "./category-forms";
+import { CategoryManage } from "./category-manage";
 import { Badge } from "@/components/ui/badge";
+import { FlashMessage } from "@/components/flash-message";
 
 export default async function CategoriesPage({
   searchParams,
@@ -17,6 +20,33 @@ export default async function CategoriesPage({
   );
   const subs = await db.select().from(subcategories);
 
+  const assessments = await Promise.all(
+    cats.map(async (cat) => {
+      const result = await assessCategoryDelete(cat.id);
+      if (!result.ok) {
+        return {
+          categoryId: cat.id,
+          productCount: 0,
+          subcategoryCount: 0,
+          canDelete: false,
+          blockers: [result.error],
+          warnings: [] as string[],
+        };
+      }
+      return {
+        categoryId: result.categoryId,
+        productCount: result.productCount,
+        subcategoryCount: result.subcategoryCount,
+        canDelete: result.canDelete,
+        blockers: result.blockers,
+        warnings: result.warnings,
+      };
+    }),
+  );
+  const assessmentById = new Map(
+    assessments.map((a) => [a.categoryId, a] as const),
+  );
+
   return (
     <div className="space-y-8">
       <div>
@@ -26,10 +56,10 @@ export default async function CategoriesPage({
         </p>
       </div>
 
+      <FlashMessage error={query.error} ok={query.ok} />
+
       <CategoryForms
         categories={cats.map((c) => ({ id: c.id, name: c.name }))}
-        initialError={query.error}
-        initialOk={query.ok}
       />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -42,6 +72,7 @@ export default async function CategoriesPage({
             const children = subs
               .filter((s) => s.categoryId === cat.id)
               .sort((a, b) => a.name.localeCompare(b.name, "es"));
+            const assessment = assessmentById.get(cat.id);
             return (
               <article
                 key={cat.id}
@@ -78,6 +109,19 @@ export default async function CategoriesPage({
                     ))
                   )}
                 </ul>
+                {assessment && (
+                  <CategoryManage
+                    categoryId={cat.id}
+                    name={cat.name}
+                    description={cat.description}
+                    isActive={cat.isActive}
+                    productCount={assessment.productCount}
+                    subcategoryCount={assessment.subcategoryCount}
+                    canDelete={assessment.canDelete}
+                    blockers={assessment.blockers}
+                    warnings={assessment.warnings}
+                  />
+                )}
               </article>
             );
           })
