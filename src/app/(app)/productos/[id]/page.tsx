@@ -23,6 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FlashMessage } from "@/components/flash-message";
 import { ArchiveButtons } from "./archive-buttons";
+import { DeleteProductButton } from "./delete-product-button";
+import { assessProductDelete } from "@/lib/actions/product-delete";
 import {
   Table,
   TableBody,
@@ -48,6 +50,8 @@ export default async function ProductDetailPage({
   const db = getDb();
   const product = await one(db.select().from(products).where(eq(products.id, id)));
   if (!product) notFound();
+
+  const deleteAssessment = await assessProductDelete(id);
 
   const category = product.categoryId
     ? await one(
@@ -139,9 +143,25 @@ export default async function ProductDetailPage({
             productId={product.id}
             status={product.status}
           />
+          {deleteAssessment.ok && (
+            <DeleteProductButton
+              productId={product.id}
+              productName={product.name}
+              currentStock={deleteAssessment.currentStock}
+              movementCount={deleteAssessment.movementCount}
+              basketComponentCount={deleteAssessment.basketComponentCount}
+              deliveryLineCount={deleteAssessment.deliveryLineCount}
+              assemblyLineCount={deleteAssessment.assemblyLineCount}
+              canDelete={deleteAssessment.canDelete}
+              blockers={deleteAssessment.blockers}
+              warnings={deleteAssessment.warnings}
+              returnTo={`/productos/${product.id}`}
+            />
+          )}
         </div>
       </div>
 
+      {/* Shared with archive/restore (BA-25): delete failures use ?error=, list success ?ok= */}
       <FlashMessage error={query.error} ok={query.ok} />
 
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
