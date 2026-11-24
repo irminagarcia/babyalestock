@@ -36,6 +36,13 @@
       "when": 1795195800000,
       "tag": "0004_supplier_fiscal_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1795282200000,
+      "tag": "0005_user_role",
+      "breakpoints": true
     }
   ]
 }

@@ -12,9 +12,15 @@ export async function POST(request: Request) {
   try {
     const result = await changeOwnPassword(form);
     if (!result.ok) {
-      return redirectWithParams(request, returnTo, { error: result.error });
+      return redirectWithParams(request, returnTo, {
+        error: result.error,
+        form: "password",
+      });
     }
-    return redirectWithParams(request, returnTo, { ok: result.message });
+    return redirectWithParams(request, returnTo, {
+      ok: result.message,
+      form: "password",
+    });
   } catch (err) {
     return catchMutation(
       request,

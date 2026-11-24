@@ -35,7 +35,7 @@ const navItems = [
   { href: "/categorias", label: "Categorías", icon: Tags },
   { href: "/proveedores", label: "Proveedores", icon: Truck },
   { href: "/csv", label: "Importar / Exportar", icon: FileSpreadsheet },
-  { href: "/cuenta", label: "Cuenta / contraseña", icon: KeyRound },
+  { href: "/cuenta", label: "Cuenta", icon: KeyRound },
   { href: "/ayuda", label: "Ayuda", icon: HelpCircle },
 ];
 
@@ -114,7 +114,7 @@ export function AppShell({
             onClick={() => setOpen(false)}
             className="mt-2 inline-flex text-sm text-primary underline-offset-4 hover:underline"
           >
-            Cambiar contraseña
+            Mi cuenta
           </Link>
           <form action="/api/auth/logout" method="post" className="mt-3">
             <Button type="submit" variant="outline" size="sm" className="w-full">

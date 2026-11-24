@@ -1,6 +1,6 @@
 # babyalestock — control de existencias de Baby Ale
 
-Programa **interno** de control de stock para la boutique **Baby Ale** (no es una tienda en línea). Dos usuarios locales; interfaz en **español (es-ES)** e importes en **EUR**.
+Programa **interno** de control de stock para la boutique **Baby Ale** (no es una tienda en línea). Usuarios locales (admin puede crear más); interfaz en **español (es-ES)** e importes en **EUR**.
 
 En pantalla el nombre de marca es **Baby Ale**. El identificador técnico del proyecto/paquete sigue siendo `babyalestock`.
 
@@ -74,8 +74,8 @@ El PC cliente solo necesita el navegador y un marcador; no instala Node.
 | `admin`  | `admin123` | Administración      |
 | `tienda` | `tienda123`| Personal de tienda  |
 
-En la app: menú **Cuenta / contraseña** (o «Cambiar contraseña» en la sesión).
-Cualquier usuario cambia la suya; `admin` puede restablecer la de `tienda`.
+En la app: menú **Cuenta** (o «Mi cuenta» en la sesión).
+Cualquier usuario edita su nombre, usuario y contraseña; administración puede crear usuarios y restablecer otras contraseñas.
 
 Si el login falla tras instalar (p. ej. en Windows):
 
@@ -160,7 +160,7 @@ npm start
 - Búsqueda y filtros (categoría, marca, stock, uso)
 - Categorías / subcategorías y proveedores dinámicos
 - Importación / exportación CSV (casilla «Inventariar» para fijar existencias al coincidir por SKU)
-- Cambio de contraseña en **Cuenta** (admin puede restablecer la de tienda)
+- Perfil en **Cuenta** (nombre, usuario, contraseña; admin crea usuarios y restablece otras)
 - Esquema preparado para pedidos y WooCommerce (sin implementar aún)
 
 ## Hito 2 · Fase 1 — Coste de adquisición

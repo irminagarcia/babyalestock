@@ -14,7 +14,12 @@ export type SessionUser = {
   id: number;
   username: string;
   displayName: string;
+  role: string;
 };
+
+export function isAdmin(user: SessionUser): boolean {
+  return user.role === "admin";
+}
 
 async function ensureDb() {
   // Hosted Postgres: migrate ONLY via scripts/migrate.mjs after `next build`.
@@ -93,6 +98,7 @@ export async function createSession(
       id: user.id,
       username: user.username,
       displayName: user.displayName,
+      role: user.role || (user.username === "admin" ? "admin" : "staff"),
     },
   };
 }
@@ -138,6 +144,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
         id: users.id,
         username: users.username,
         displayName: users.displayName,
+        role: users.role,
         expiresAt: sessions.expiresAt,
         isActive: users.isActive,
       })
@@ -157,6 +164,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     id: row.id,
     username: row.username,
     displayName: row.displayName,
+    role: row.role || (row.username === "admin" ? "admin" : "staff"),
   };
 }
 

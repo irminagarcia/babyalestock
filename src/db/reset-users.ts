@@ -20,11 +20,13 @@ const DEFAULTS = [
     username: "admin",
     displayName: "Administración",
     password: process.env.BABYALESTOCK_ADMIN_PASSWORD || "admin123",
+    role: "admin" as const,
   },
   {
     username: "tienda",
     displayName: "Personal de tienda",
     password: process.env.BABYALESTOCK_SHOP_PASSWORD || "tienda123",
+    role: "staff" as const,
   },
 ] as const;
 
@@ -49,6 +51,7 @@ async function resetUsers() {
           username: u.username,
           displayName: u.displayName,
           passwordHash,
+          role: u.role,
           isActive: true,
         }),
       );
@@ -60,6 +63,7 @@ async function resetUsers() {
           .set({
             passwordHash,
             displayName: u.displayName,
+            role: u.role,
             isActive: true,
           })
           .where(eq(users.username, u.username)),
