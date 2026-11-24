@@ -77,8 +77,11 @@ export default function HelpPage() {
         <h2 className="font-display text-xl">Archivar vs. borrar</h2>
         <p className="text-sm text-muted-foreground">
           Archivar oculta el producto del catálogo activo pero conserva todo el
-          historial de movimientos. No hay borrado duro de productos con
-          historial en este hito.
+          historial de movimientos. Eliminar borra el producto (y puede
+          descartar existencias si aún hay stock); confirme en español antes.
+          No se puede borrar si hay historial de entregas de proveedor o
+          montajes de cesta — en ese caso use Archivar. Las categorías solo se
+          eliminan cuando ya no tienen productos.
         </p>
       </section>
 
