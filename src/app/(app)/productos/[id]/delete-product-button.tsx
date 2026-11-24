@@ -57,7 +57,11 @@ export function DeleteProductButton({
         <p className="font-medium text-destructive">Eliminar producto</p>
         <p className="mt-1 text-sm text-muted-foreground">
           ¿Seguro que desea eliminar «{productName}»? Esta acción no se puede
-          deshacer. (Archivar conserva el historial.)
+          deshacer.
+          {currentStock !== 0
+            ? ` Hay ${currentStock} unidad(es) en stock: se descartarán al borrar.`
+            : ""}{" "}
+          (Archivar conserva el historial.)
         </p>
       </div>
 
@@ -101,7 +105,11 @@ export function DeleteProductButton({
             <input type="hidden" name="productId" value={productId} />
             <input type="hidden" name="returnTo" value={returnTo} />
             <Button type="submit" variant="destructive" disabled={pending}>
-              {pending ? "Eliminando…" : "Confirmar eliminación"}
+              {pending
+                ? "Eliminando…"
+                : currentStock !== 0
+                  ? "Confirmar: eliminar y descartar stock"
+                  : "Confirmar eliminación"}
             </Button>
           </form>
         ) : (

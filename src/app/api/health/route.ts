@@ -73,9 +73,9 @@ export async function GET() {
       supplierFiscalReady,
       gitSha,
       // Bump when shipping Workers fixes — confirms tip is live vs stale deploy.
-      codeStamp: "ba33-category-stock-v1",
+      codeStamp: "ba34-freer-delete-v1",
       ...(dbError ? { dbError } : {}),
-      tip: "After merge: Cloudflare → babyalestock → Deployments → Retry tip of main. Expect codeStamp ba33-category-stock-v1 + hasDatabaseUrl/dbReachable true. Then: delete empty category (303 ok); Corregir existencias → 0 → Eliminar producto.",
+      tip: "After merge: Cloudflare → babyalestock → Deployments → Retry tip of main. Expect codeStamp ba34-freer-delete-v1 + hasDatabaseUrl/dbReachable true. Then: delete product with stock>0 (Spanish confirm discards stock); empty category delete; Corregir existencias still works.",
     },
     { status: ok ? 200 : 503 },
   );

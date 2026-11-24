@@ -1,7 +1,7 @@
 "use server";
 
 import { count, eq, inArray } from "drizzle-orm";
-import { getDb } from "@/db/client";
+import { getDb, type Db, type Tx } from "@/db/client";
 import { one, withTransaction } from "@/db/query";
 import {
   giftBasketAssemblyLines,
@@ -93,10 +93,13 @@ export async function assessProductDelete(
   const blockers: string[] = [];
   const warnings: string[] = [];
 
+  // Stock > 0 is no longer a hard blocker (BA-34): one-click delete discards
+  // remaining units with the product. Delivery/assembly history still blocks.
   const stockNow = Number(product.currentStock);
-  if (!Number.isFinite(stockNow) || stockNow !== 0) {
-    blockers.push(
-      `Hay ${Number.isFinite(stockNow) ? stockNow : product.currentStock} unidad(es) en stock. Ponga las existencias a 0 (corrección o salida) antes de eliminar.`,
+  const stockUnits = Number.isFinite(stockNow) ? stockNow : 0;
+  if (stockUnits !== 0) {
+    warnings.push(
+      `Hay ${stockUnits} unidad(es) en stock. Al confirmar se descartarán esas existencias junto con el producto.`,
     );
   }
   if (deliveryLineCount > 0) {
@@ -155,6 +158,7 @@ export type DeleteProductResult =
 /**
  * Permanently delete a product after safety checks.
  * Related movements / recipe lines / soft links are removed when allowed.
+ * Stock may be > 0 — remaining units are discarded with the product (BA-34).
  */
 export async function deleteProduct(
   productId: number,
@@ -179,16 +183,7 @@ export async function deleteProduct(
     return { ok: false, error: "Producto no encontrado." };
   }
 
-  // Re-check stock inside the transaction window
-  if (Number(product.currentStock) !== 0) {
-    return {
-      ok: false,
-      error:
-        "Hay existencias distintas de 0. Ponga el stock a 0 antes de eliminar.",
-    };
-  }
-
-  await withTransaction(async (tx) => {
+  const purgeRelated = async (tx: Tx | Db) => {
     // Clear FKs that point at this product's movements (draft safety; confirmed
     // deliveries are already blocked above).
     const moveIds = (
@@ -226,7 +221,26 @@ export async function deleteProduct(
       .where(eq(orderLines.productId, productId));
 
     await tx.delete(products).where(eq(products.id, productId));
-  });
+  };
+
+  try {
+    await withTransaction(purgeRelated);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Neon HTTP / fetch Pool cannot BEGIN — ordered deletes are still safe
+    // (assessment already refused delivery/assembly history blockers).
+    if (/no transactions support|neon-http|poolQueryViaFetch/i.test(msg)) {
+      await purgeRelated(getDb());
+    } else if (/foreign key|violates foreign key/i.test(msg)) {
+      return {
+        ok: false,
+        error:
+          "No se pudo eliminar: hay vínculos de historial (entregas o montajes). Archívelo o resuelva esos bloqueos.",
+      };
+    } else {
+      throw err;
+    }
+  }
 
   if (product.photoPath) {
     try {
