@@ -33,7 +33,8 @@ export function ProfileForm({
       <input type="hidden" name="returnTo" value="/cuenta" />
       <h2 className="font-display text-xl">Mi perfil</h2>
       <p className="text-sm text-muted-foreground">
-        Nombre para mostrar en la app y usuario de acceso (inicio de sesión).
+        Cambie su <strong>nombre</strong> (cómo se ve en la app) y su{" "}
+        <strong>usuario</strong> (para iniciar sesión).
       </p>
       <FlashMessage error={initialError} ok={initialOk} />
       <div className="space-y-2">
@@ -154,9 +155,10 @@ export function AdminCreateUserForm({
       }}
     >
       <input type="hidden" name="returnTo" value="/cuenta" />
-      <h2 className="font-display text-xl">Crear usuario</h2>
+      <h2 className="font-display text-xl">Alta de usuario de tienda</h2>
       <p className="text-sm text-muted-foreground">
-        Solo administración. El nuevo acceso será de tipo tienda.
+        Solo administración. Crea un acceso nuevo para otra persona de la
+        tienda (no administración).
       </p>
       <FlashMessage error={initialError} ok={initialOk} />
       <div className="space-y-2">
@@ -206,7 +208,7 @@ export function AdminCreateUserForm({
         />
       </div>
       <Button type="submit" disabled={pending}>
-        {pending ? "Creando…" : "Crear usuario"}
+        {pending ? "Creando…" : "Dar de alta"}
       </Button>
     </form>
   );
@@ -298,30 +300,100 @@ export function AdminResetPasswordForm({
 
 export function AdminUsersList({
   users,
+  currentUsername,
+  initialError,
+  initialOk,
 }: {
   users: { username: string; displayName: string; role: string }[];
+  currentUsername: string;
+  initialError?: string;
+  initialOk?: string;
 }) {
+  const [confirmUser, setConfirmUser] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
   return (
     <div className="space-y-3 rounded-xl border bg-card p-6">
-      <h2 className="font-display text-xl">Usuarios</h2>
+      <h2 className="font-display text-xl">Usuarios activos</h2>
       <p className="text-sm text-muted-foreground">
-        Cuentas activas en Baby Ale.
+        Cuentas que pueden entrar en Baby Ale. Puede desactivar otra cuenta de
+        tienda si ya no debe usarse (no se borra el historial).
       </p>
+      <FlashMessage error={initialError} ok={initialOk} />
       <ul className="divide-y rounded-md border">
-        {users.map((u) => (
-          <li
-            key={u.username}
-            className="flex flex-wrap items-baseline justify-between gap-2 px-3 py-2 text-sm"
-          >
-            <span>
-              <span className="font-medium">{u.displayName}</span>
-              <span className="text-muted-foreground"> · {u.username}</span>
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {roleLabel(u.role)}
-            </span>
-          </li>
-        ))}
+        {users.map((u) => {
+          const isSelf = u.username === currentUsername;
+          return (
+            <li key={u.username} className="space-y-2 px-3 py-2 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  <span className="font-medium">{u.displayName}</span>
+                  <span className="text-muted-foreground"> · {u.username}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {roleLabel(u.role)}
+                  </span>
+                  {!isSelf && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-destructive/40 text-destructive hover:bg-destructive/10"
+                      disabled={pending}
+                      onClick={() =>
+                        setConfirmUser(
+                          confirmUser === u.username ? null : u.username,
+                        )
+                      }
+                    >
+                      Desactivar
+                    </Button>
+                  )}
+                </span>
+              </div>
+              {confirmUser === u.username && (
+                <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                  <p className="text-sm text-destructive">
+                    ¿Desactivar «{u.displayName}» ({u.username})? No podrá
+                    iniciar sesión. El historial de stock se conserva.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <form
+                      action="/api/cuenta/deactivate"
+                      method="post"
+                      onSubmit={() => setPending(true)}
+                    >
+                      <input type="hidden" name="returnTo" value="/cuenta" />
+                      <input
+                        type="hidden"
+                        name="targetUsername"
+                        value={u.username}
+                      />
+                      <Button
+                        type="submit"
+                        variant="destructive"
+                        size="sm"
+                        disabled={pending}
+                      >
+                        {pending ? "Desactivando…" : "Confirmar desactivación"}
+                      </Button>
+                    </form>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => setConfirmUser(null)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

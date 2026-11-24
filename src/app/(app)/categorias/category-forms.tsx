@@ -4,23 +4,17 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FlashMessage } from "@/components/flash-message";
 
 export function CategoryForms({
   categories,
-  initialError,
-  initialOk,
 }: {
   categories: { id: number; name: string }[];
-  initialError?: string;
-  initialOk?: string;
 }) {
   const [pendingCat, setPendingCat] = useState(false);
   const [pendingSub, setPendingSub] = useState(false);
 
   return (
     <div className="space-y-4">
-      <FlashMessage error={initialError} ok={initialOk} />
       <div className="grid gap-4 lg:grid-cols-2">
         <form
           action="/api/categories/create"

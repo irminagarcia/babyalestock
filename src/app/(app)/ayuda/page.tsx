@@ -14,10 +14,14 @@ export default function HelpPage() {
         <ol className="list-decimal space-y-2 pl-5 text-sm">
           <li>Inicie sesión con un usuario autorizado.</li>
           <li>
-            Cambie las contraseñas por defecto en{" "}
-            <strong>Cuenta / contraseña</strong>.
+            En el menú, abra <strong>Cuenta</strong> (o «Mi cuenta» bajo su
+            nombre): cambie <strong>nombre</strong>, <strong>usuario</strong> y{" "}
+            <strong>contraseña</strong>. Si es administración, use{" "}
+            <strong>Alta de usuario de tienda</strong> para crear otro acceso.
           </li>
-          <li>Revise o cree Categorías y Proveedores.</li>
+          <li>
+            Revise o cree Categorías (editar/eliminar) y Proveedores.
+          </li>
           <li>
             Añada Productos (o impórtelos por CSV; use la casilla Inventariar
             si necesita fijar existencias al coincidir por SKU).

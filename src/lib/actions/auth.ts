@@ -16,6 +16,7 @@ import { getDb } from "@/db/client";
 import { exec, one } from "@/db/query";
 import { sessions, users } from "@/db/schema";
 import {
+  isAdminRole,
   validateDisplayName,
   validateNewPassword,
   validateUsername,
@@ -243,5 +244,80 @@ export async function adminCreateUser(
   return {
     ok: true,
     message: `Usuario «${userResult.username}» creado.`,
+  };
+}
+
+function userLooksAdmin(row: {
+  role: string | null;
+  username: string;
+}): boolean {
+  return isAdminRole(row.role) || row.username === "admin";
+}
+
+/**
+ * Admin soft-deactivates another user (is_active=false) and clears sessions.
+ * Hard delete is intentionally omitted — stock/delivery history FKs reference users.
+ * Refuses self and refuses locking out the last active admin.
+ */
+export async function adminDeactivateUser(
+  formData: FormData,
+): Promise<PasswordActionResult> {
+  const actor = await requireUser();
+  if (!isAdmin(actor)) {
+    return {
+      ok: false,
+      error: "Solo administración puede desactivar usuarios.",
+    };
+  }
+
+  const targetUsername = String(formData.get("targetUsername") ?? "").trim();
+  if (!targetUsername) {
+    return { ok: false, error: "Seleccione un usuario." };
+  }
+
+  const db = getDb();
+  const target = await one(
+    db.select().from(users).where(eq(users.username, targetUsername)),
+  );
+  if (!target || !target.isActive) {
+    return { ok: false, error: "Usuario no encontrado o ya inactivo." };
+  }
+  if (target.id === actor.id) {
+    return {
+      ok: false,
+      error: "No puede desactivar su propia cuenta.",
+    };
+  }
+
+  if (userLooksAdmin(target)) {
+    const activeUsers = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.isActive, true));
+    const activeAdminCount = activeUsers.filter(userLooksAdmin).length;
+    if (activeAdminCount <= 1) {
+      return {
+        ok: false,
+        error:
+          "No se puede desactivar el último usuario de administración. Cree otro administrador primero.",
+      };
+    }
+  }
+
+  await exec(
+    db
+      .update(users)
+      .set({ isActive: false })
+      .where(eq(users.id, target.id)),
+  );
+  await exec(db.delete(sessions).where(eq(sessions.userId, target.id)));
+
+  return {
+    ok: true,
+    message: `Usuario «${target.username}» desactivado. Ya no podrá iniciar sesión.`,
   };
 }
