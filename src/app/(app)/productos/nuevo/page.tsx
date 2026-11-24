@@ -1,7 +1,5 @@
-import { eq } from "drizzle-orm";
-import { getDb } from "@/db/client";
-import { categories, subcategories, suppliers } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { loadProductFormOptions } from "@/lib/product-form-options";
 import { ProductForm } from "@/components/product-form";
 
 export default async function NewProductPage({
@@ -11,24 +9,8 @@ export default async function NewProductPage({
 }) {
   await requireUser();
   const params = await searchParams;
-  const db = getDb();
-  // Same as /editar: never SELECT * on suppliers (fiscal columns may be absent).
-  const cats = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(eq(categories.isActive, true));
-  const subs = await db
-    .select({
-      id: subcategories.id,
-      name: subcategories.name,
-      categoryId: subcategories.categoryId,
-    })
-    .from(subcategories)
-    .where(eq(subcategories.isActive, true));
-  const sups = await db
-    .select({ id: suppliers.id, name: suppliers.name })
-    .from(suppliers)
-    .where(eq(suppliers.isActive, true));
+  const { categories, subcategories, suppliers } =
+    await loadProductFormOptions();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -43,9 +25,9 @@ export default async function NewProductPage({
         <ProductForm
           returnTo="/productos/nuevo"
           initialError={params.error}
-          categories={cats}
-          subcategories={subs}
-          suppliers={sups}
+          categories={categories}
+          subcategories={subcategories}
+          suppliers={suppliers}
         />
       </div>
     </div>

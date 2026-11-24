@@ -1,8 +1,79 @@
 import { getDb } from "@/db/client";
+import { ensureHostedSchema } from "@/db/ensure-hosted-schema";
 import { suppliers } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { SupplierForm } from "./supplier-form";
 import { Badge } from "@/components/ui/badge";
+
+type SupplierRow = {
+  id: number;
+  name: string;
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+  taxId: string | null;
+  legalName: string | null;
+  fiscalAddress: string | null;
+  country: string | null;
+  notes: string | null;
+  isActive: boolean;
+};
+
+async function loadSuppliers(): Promise<SupplierRow[]> {
+  try {
+    await ensureHostedSchema();
+  } catch {
+    /* fall through to safe select */
+  }
+
+  const db = getDb();
+  try {
+    const rows = await db.select().from(suppliers);
+    return rows
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        contactName: s.contactName,
+        email: s.email,
+        phone: s.phone,
+        taxId: s.taxId ?? null,
+        legalName: s.legalName ?? null,
+        fiscalAddress: s.fiscalAddress ?? null,
+        country: s.country ?? null,
+        notes: s.notes,
+        isActive: Boolean(s.isActive),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  } catch {
+    // Neon without 002 yet: only columns that always exist.
+    const rows = await db
+      .select({
+        id: suppliers.id,
+        name: suppliers.name,
+        contactName: suppliers.contactName,
+        email: suppliers.email,
+        phone: suppliers.phone,
+        notes: suppliers.notes,
+        isActive: suppliers.isActive,
+      })
+      .from(suppliers);
+    return rows
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        contactName: s.contactName,
+        email: s.email,
+        phone: s.phone,
+        taxId: null,
+        legalName: null,
+        fiscalAddress: null,
+        country: null,
+        notes: s.notes,
+        isActive: Boolean(s.isActive),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "es"));
+  }
+}
 
 export default async function SuppliersPage({
   searchParams,
@@ -11,9 +82,7 @@ export default async function SuppliersPage({
 }) {
   await requireUser();
   const query = await searchParams;
-  const rows = (
-    await getDb().select().from(suppliers)
-  ).sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const rows = await loadSuppliers();
 
   return (
     <div className="space-y-8">

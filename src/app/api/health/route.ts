@@ -56,6 +56,13 @@ export async function GET() {
       ? hasDatabaseUrl && dbReachable === true
       : true;
 
+  const gitSha =
+    process.env.CF_PAGES_COMMIT_SHA?.trim() ||
+    process.env.WORKERS_CI_COMMIT_SHA?.trim() ||
+    process.env.GITHUB_SHA?.trim() ||
+    process.env.COMMIT_SHA?.trim() ||
+    null;
+
   return NextResponse.json(
     {
       ok,
@@ -64,8 +71,11 @@ export async function GET() {
       hasDatabaseUrl,
       dbReachable,
       supplierFiscalReady,
+      gitSha,
+      // Bump when shipping Workers fixes — confirms tip is live vs stale deploy.
+      codeStamp: "ba30-edit-v3",
       ...(dbError ? { dbError } : {}),
-      tip: "If preview <version>-babyalestock.*.workers.dev works but babyalestock.*.workers.dev fails: Deployments → promote that Version ID to 100% production traffic. Do not Retry an old SHA.",
+      tip: "After merge: Cloudflare → babyalestock → Deployments → Retry tip of main (not an old SHA). Expect codeStamp ba30-edit-v3 + supplierFiscalReady true. Soft Link HTML looks like <a>; trust codeStamp, not the Editar markup.",
     },
     { status: ok ? 200 : 503 },
   );
