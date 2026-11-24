@@ -8,6 +8,7 @@ import { formatEur, formatNumber } from "@/lib/utils";
 import { statusLabels, usageLabels } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FlashMessage } from "@/components/flash-message";
 import { ProductFilters } from "@/components/product-filters";
 import {
   Table,
@@ -45,6 +46,7 @@ export default async function ProductsPage({
 
   return (
     <div className="space-y-6">
+      <FlashMessage error={filters.error} ok={filters.ok} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl">Productos</h1>

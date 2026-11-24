@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { suggestProductSku } from "@/lib/product-sku";
 
 type Option = { id: number; name: string };
 type SubOption = { id: number; name: string; categoryId: number };
@@ -48,7 +49,11 @@ export function ProductForm({
   returnTo: string;
   initialError?: string;
 }) {
+  const isCreate = !initial?.id;
   const [pending, setPending] = useState(false);
+  const [sku, setSku] = useState(
+    () => initial?.sku ?? (isCreate ? suggestProductSku() : ""),
+  );
   const [categoryId, setCategoryId] = useState(
     initial?.categoryId ? String(initial.categoryId) : "",
   );
@@ -98,7 +103,31 @@ export function ProductForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="sku">SKU</Label>
-          <Input id="sku" name="sku" defaultValue={initial?.sku ?? ""} />
+          <div className="flex gap-2">
+            <Input
+              id="sku"
+              name="sku"
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+              placeholder="BA-XXXXXX"
+              autoComplete="off"
+            />
+            {isCreate && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => setSku(suggestProductSku())}
+              >
+                Nuevo
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {isCreate
+              ? "Se genera automáticamente un SKU único; puede editarlo o pulsar Nuevo."
+              : "Puede cambiar el SKU; debe seguir siendo único."}
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="barcode">Código de barras</Label>

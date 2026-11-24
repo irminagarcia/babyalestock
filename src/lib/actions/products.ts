@@ -17,6 +17,7 @@ import {
 } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { getPhotosDir, ensureDataDirs } from "@/lib/paths";
+import { suggestProductSku } from "@/lib/product-sku";
 
 function emptyToNull(value: FormDataEntryValue | null): string | null {
   const s = String(value ?? "").trim();
@@ -35,6 +36,21 @@ function parseIntOr(value: FormDataEntryValue | null, fallback: number): number 
   if (!s) return fallback;
   const n = Number.parseInt(s, 10);
   return Number.isFinite(n) ? n : fallback;
+}
+
+async function allocateUniqueSku(
+  db: ReturnType<typeof getDb>,
+  attempts = 12,
+): Promise<string> {
+  for (let i = 0; i < attempts; i++) {
+    const candidate = suggestProductSku();
+    const clash = await one(
+      db.select({ id: products.id }).from(products).where(eq(products.sku, candidate)),
+    );
+    if (!clash) return candidate;
+  }
+  // Extremely unlikely; fold timestamp for uniqueness.
+  return `BA-${Date.now().toString(36).toUpperCase()}`;
 }
 
 async function savePhoto(file: File | null, previous?: string | null) {
@@ -64,8 +80,11 @@ export async function upsertProduct(formData: FormData) {
     return { ok: false as const, error: "El nombre del producto es obligatorio." };
   }
 
-  const sku = emptyToNull(formData.get("sku"));
-  if (sku) {
+  let sku = emptyToNull(formData.get("sku"));
+  // On create, auto-generate a unique SKU when the field is left blank.
+  if (!id && !sku) {
+    sku = await allocateUniqueSku(db);
+  } else if (sku) {
     const clash = await one(
       db
         .select()
