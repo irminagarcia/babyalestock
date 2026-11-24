@@ -20,8 +20,9 @@ const ENSURE_STATEMENTS = [
   "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS legal_name TEXT",
   "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS fiscal_address TEXT",
   "ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'España'",
-  // 003 — user role
+  // 003 — user role (+ backfill: DEFAULT 'staff' alone would hide Administración)
   "ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'staff'",
+  "UPDATE users SET role = 'admin' WHERE username = 'admin' AND (role IS NULL OR role <> 'admin')",
   // Track so build migrate stays aligned
   `CREATE TABLE IF NOT EXISTS schema_migrations (
       name text PRIMARY KEY,

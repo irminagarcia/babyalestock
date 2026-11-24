@@ -18,7 +18,9 @@ export type SessionUser = {
 };
 
 export function isAdmin(user: SessionUser): boolean {
-  return user.role === "admin";
+  // role wins; username "admin" is a legacy fallback when Neon backfill lagged
+  // (ADD COLUMN DEFAULT 'staff' without UPDATE … WHERE username = 'admin').
+  return user.role === "admin" || user.username === "admin";
 }
 
 async function ensureDb() {
