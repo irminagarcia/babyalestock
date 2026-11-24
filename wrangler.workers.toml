@@ -3,7 +3,11 @@
 # Deploy: npx wrangler deploy -c wrangler.workers.toml
 #
 # Live URL: https://babyalestock.<account-subdomain>.workers.dev
-# Secrets in the dashboard: DATABASE_URL
+# Secrets in the dashboard (Production runtime + build): DATABASE_URL
+#
+# If preview https://<version>-babyalestock.<subdomain>.workers.dev works but the
+# prod hostname fails: Deployments → select the good Version ID → Promote /
+# set traffic 100% on that version (do not Retry an old SHA).
 
 name = "babyalestock"
 main = ".open-next/worker.js"
