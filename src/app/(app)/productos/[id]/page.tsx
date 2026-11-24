@@ -21,6 +21,7 @@ import {
 } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FlashMessage } from "@/components/flash-message";
 import { ArchiveButtons } from "./archive-buttons";
 import {
   Table,
@@ -33,11 +34,14 @@ import {
 
 export default async function ProductDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   await requireUser();
   const { id: idRaw } = await params;
+  const query = await searchParams;
   const id = Number(idRaw);
   if (!Number.isFinite(id)) notFound();
 
@@ -137,6 +141,8 @@ export default async function ProductDetailPage({
           />
         </div>
       </div>
+
+      <FlashMessage error={query.error} ok={query.ok} />
 
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
         <div className="rounded-xl border bg-card p-4">

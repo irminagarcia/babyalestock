@@ -1,10 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { archiveProduct, restoreProduct } from "@/lib/actions/products";
 
 export function ArchiveButtons({
   productId,
@@ -13,47 +10,46 @@ export function ArchiveButtons({
   productId: number;
   status: string;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const returnTo = `/productos/${productId}`;
 
   if (status === "archived") {
     return (
-      <Button
-        variant="outline"
-        disabled={pending}
-        onClick={() =>
-          startTransition(async () => {
-            await restoreProduct(productId);
-            toast.success("Producto restaurado.");
-            router.refresh();
-          })
-        }
+      <form
+        action="/api/products/restore"
+        method="post"
+        onSubmit={() => setPending(true)}
       >
-        Restaurar
-      </Button>
+        <input type="hidden" name="productId" value={productId} />
+        <input type="hidden" name="returnTo" value={returnTo} />
+        <Button variant="outline" type="submit" disabled={pending}>
+          {pending ? "Restaurando…" : "Restaurar"}
+        </Button>
+      </form>
     );
   }
 
   return (
-    <Button
-      variant="outline"
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          if (
-            !confirm(
-              "¿Archivar este producto? Se ocultará del catálogo activo, pero se conservará el historial de movimientos.",
-            )
-          ) {
-            return;
-          }
-          await archiveProduct(productId);
-          toast.success("Producto archivado.");
-          router.refresh();
-        })
-      }
+    <form
+      action="/api/products/archive"
+      method="post"
+      onSubmit={(e) => {
+        if (
+          !confirm(
+            "¿Archivar este producto? Se ocultará del catálogo activo, pero se conservará el historial de movimientos.",
+          )
+        ) {
+          e.preventDefault();
+          return;
+        }
+        setPending(true);
+      }}
     >
-      Archivar
-    </Button>
+      <input type="hidden" name="productId" value={productId} />
+      <input type="hidden" name="returnTo" value={returnTo} />
+      <Button variant="outline" type="submit" disabled={pending}>
+        {pending ? "Archivando…" : "Archivar"}
+      </Button>
+    </form>
   );
 }

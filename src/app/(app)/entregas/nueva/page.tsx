@@ -4,8 +4,13 @@ import { products, suppliers } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { DeliveryForm } from "@/components/delivery-form";
 
-export default async function NewDeliveryPage() {
+export default async function NewDeliveryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   await requireUser();
+  const query = await searchParams;
   const db = getDb();
   const supplierRows = (
     await db
@@ -33,7 +38,12 @@ export default async function NewDeliveryPage() {
           recibir stock (sin duplicar movimientos).
         </p>
       </div>
-      <DeliveryForm suppliers={supplierRows} products={productRows} />
+      <DeliveryForm
+        suppliers={supplierRows}
+        products={productRows}
+        returnTo="/entregas/nueva"
+        initialError={query.error}
+      />
     </div>
   );
 }

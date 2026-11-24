@@ -1,10 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { deleteBasketRecipe, setBasketStatus } from "@/lib/actions/baskets";
 
 export function BasketStatusButtons({
   basketId,
@@ -13,65 +10,59 @@ export function BasketStatusButtons({
   basketId: number;
   status: string;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const returnTo = `/cestas/${basketId}`;
 
   return (
     <div className="flex flex-wrap gap-2">
       {status !== "active" && (
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              await setBasketStatus(basketId, "active");
-              toast.success("Receta activada.");
-              router.refresh();
-            })
-          }
+        <form
+          action="/api/baskets/status"
+          method="post"
+          onSubmit={() => setPending(true)}
         >
-          Activar
-        </Button>
+          <input type="hidden" name="basketId" value={basketId} />
+          <input type="hidden" name="status" value="active" />
+          <input type="hidden" name="returnTo" value={returnTo} />
+          <Button variant="secondary" size="sm" type="submit" disabled={pending}>
+            Activar
+          </Button>
+        </form>
       )}
       {status === "active" && (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              await setBasketStatus(basketId, "inactive");
-              toast.success("Receta desactivada.");
-              router.refresh();
-            })
-          }
+        <form
+          action="/api/baskets/status"
+          method="post"
+          onSubmit={() => setPending(true)}
         >
-          Desactivar
-        </Button>
+          <input type="hidden" name="basketId" value={basketId} />
+          <input type="hidden" name="status" value="inactive" />
+          <input type="hidden" name="returnTo" value={returnTo} />
+          <Button variant="outline" size="sm" type="submit" disabled={pending}>
+            Desactivar
+          </Button>
+        </form>
       )}
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={pending}
-        onClick={() =>
-          startTransition(async () => {
-            if (
-              !confirm(
-                "¿Eliminar esta receta? No afecta al stock ni al historial de movimientos.",
-              )
-            ) {
-              return;
-            }
-            await deleteBasketRecipe(basketId);
-            toast.success("Receta eliminada.");
-            router.push("/cestas");
-            router.refresh();
-          })
-        }
+      <form
+        action="/api/baskets/delete"
+        method="post"
+        onSubmit={(e) => {
+          if (
+            !confirm(
+              "¿Eliminar esta receta? No afecta al stock ni al historial de movimientos.",
+            )
+          ) {
+            e.preventDefault();
+            return;
+          }
+          setPending(true);
+        }}
       >
-        Eliminar
-      </Button>
+        <input type="hidden" name="basketId" value={basketId} />
+        <Button variant="outline" size="sm" type="submit" disabled={pending}>
+          Eliminar
+        </Button>
+      </form>
     </div>
   );
 }

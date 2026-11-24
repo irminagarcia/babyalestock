@@ -1,62 +1,51 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  confirmDelivery,
-  deleteDraftDelivery,
-} from "@/lib/actions/deliveries";
 
 export function ConfirmDeliveryButtons({ deliveryId }: { deliveryId: number }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
+  const returnTo = `/entregas/${deliveryId}`;
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button
-        disabled={pending}
-        onClick={() =>
-          startTransition(async () => {
-            if (
-              !confirm(
-                "¿Confirmar esta entrega? Se recibirá el stock y se actualizará el coste de adquisición (media ponderada). Esta acción no se puede deshacer desde el borrador.",
-              )
-            ) {
-              return;
-            }
-            const result = await confirmDelivery(deliveryId);
-            if (result.error) {
-              toast.error(result.error);
-              return;
-            }
-            toast.success(result.success || "Entrega confirmada.");
-            router.refresh();
-          })
-        }
+      <form
+        action="/api/deliveries/confirm"
+        method="post"
+        onSubmit={(e) => {
+          if (
+            !confirm(
+              "¿Confirmar esta entrega? Se recibirá el stock y se actualizará el coste de adquisición (media ponderada). Esta acción no se puede deshacer desde el borrador.",
+            )
+          ) {
+            e.preventDefault();
+            return;
+          }
+          setPending(true);
+        }}
       >
-        {pending ? "Confirmando…" : "Confirmar entrega"}
-      </Button>
-      <Button
-        variant="outline"
-        disabled={pending}
-        onClick={() =>
-          startTransition(async () => {
-            if (!confirm("¿Eliminar este borrador?")) return;
-            const result = await deleteDraftDelivery(deliveryId);
-            if ("error" in result && result.error) {
-              toast.error(result.error);
-              return;
-            }
-            toast.success("Borrador eliminado.");
-            router.push("/entregas");
-            router.refresh();
-          })
-        }
+        <input type="hidden" name="deliveryId" value={deliveryId} />
+        <input type="hidden" name="returnTo" value={returnTo} />
+        <Button type="submit" disabled={pending}>
+          {pending ? "Confirmando…" : "Confirmar entrega"}
+        </Button>
+      </form>
+      <form
+        action="/api/deliveries/delete"
+        method="post"
+        onSubmit={(e) => {
+          if (!confirm("¿Eliminar este borrador?")) {
+            e.preventDefault();
+            return;
+          }
+          setPending(true);
+        }}
       >
-        Eliminar borrador
-      </Button>
+        <input type="hidden" name="deliveryId" value={deliveryId} />
+        <Button variant="outline" type="submit" disabled={pending}>
+          Eliminar borrador
+        </Button>
+      </form>
     </div>
   );
 }

@@ -7,9 +7,15 @@ import {
   ChangeOwnPasswordForm,
 } from "./password-forms";
 
-export default async function CuentaPage() {
+export default async function CuentaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; ok?: string; form?: string }>;
+}) {
   const user = await requireUser();
+  const query = await searchParams;
   const isAdmin = user.username === "admin";
+  const isAdminFlash = query.form === "admin";
 
   const otherUsernames = isAdmin
     ? (
@@ -31,9 +37,18 @@ export default async function CuentaPage() {
         </p>
       </div>
 
-      <ChangeOwnPasswordForm />
+      <ChangeOwnPasswordForm
+        initialError={!isAdminFlash ? query.error : undefined}
+        initialOk={!isAdminFlash ? query.ok : undefined}
+      />
 
-      {isAdmin && <AdminResetPasswordForm otherUsernames={otherUsernames} />}
+      {isAdmin && (
+        <AdminResetPasswordForm
+          otherUsernames={otherUsernames}
+          initialError={isAdminFlash ? query.error : undefined}
+          initialOk={isAdminFlash ? query.ok : undefined}
+        />
+      )}
     </div>
   );
 }

@@ -1,16 +1,11 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  saveDraftDelivery,
-  type DeliveryFormState,
-} from "@/lib/actions/deliveries";
+import { FlashMessage } from "@/components/flash-message";
 import { computeDeliveryCosts } from "@/lib/landed-cost";
 import { formatEur } from "@/lib/utils";
 
@@ -24,8 +19,6 @@ type LineState = {
   vatRate: string;
   vatRecoverable: boolean;
 };
-
-const initialState: DeliveryFormState = {};
 
 function newLine(): LineState {
   return {
@@ -42,6 +35,8 @@ export function DeliveryForm({
   suppliers,
   products,
   initial,
+  returnTo,
+  initialError,
 }: {
   suppliers: Option[];
   products: Option[];
@@ -63,12 +58,10 @@ export function DeliveryForm({
       vatRecoverable: boolean;
     }[];
   };
+  returnTo: string;
+  initialError?: string;
 }) {
-  const router = useRouter();
-  const [state, formAction, pending] = useActionState(
-    saveDraftDelivery,
-    initialState,
-  );
+  const [pending, setPending] = useState(false);
   const [lines, setLines] = useState<LineState[]>(() =>
     initial?.lines?.length
       ? initial.lines.map((l) => ({
@@ -111,15 +104,6 @@ export function DeliveryForm({
     );
   }, [lines, shippingCost, otherCosts, allocationMethod]);
 
-  useEffect(() => {
-    if (state?.error) toast.error(state.error);
-    if (state?.success && state.deliveryId) {
-      toast.success(state.success);
-      router.push(`/entregas/${state.deliveryId}`);
-      router.refresh();
-    }
-  }, [state, router]);
-
   const linesJson = JSON.stringify(
     lines.map((l) => ({
       key: l.key,
@@ -131,10 +115,23 @@ export function DeliveryForm({
     })),
   );
 
+  const cancelHref = initial?.id ? `/entregas/${initial.id}` : "/entregas";
+
   return (
-    <form action={formAction} className="space-y-6">
+    <form
+      action="/api/deliveries/upsert"
+      method="post"
+      className="space-y-6"
+      onSubmit={(e) => {
+        if (!e.currentTarget.checkValidity()) return;
+        setPending(true);
+      }}
+    >
       {initial?.id && <input type="hidden" name="id" value={initial.id} />}
+      <input type="hidden" name="returnTo" value={returnTo} />
       <input type="hidden" name="linesJson" value={linesJson} />
+
+      <FlashMessage error={initialError} />
 
       <section className="grid gap-4 rounded-xl border bg-card p-5 md:grid-cols-2">
         <h2 className="font-display text-xl md:col-span-2">
@@ -419,12 +416,8 @@ export function DeliveryForm({
         <Button type="submit" disabled={pending}>
           {pending ? "Guardando…" : "Guardar borrador"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push("/entregas")}
-        >
-          Cancelar
+        <Button type="button" variant="outline" disabled={pending} asChild>
+          <a href={cancelHref}>Cancelar</a>
         </Button>
       </div>
     </form>

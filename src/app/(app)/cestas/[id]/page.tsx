@@ -9,6 +9,7 @@ import { usageLabels } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BasketForm } from "@/components/basket-form";
+import { FlashMessage } from "@/components/flash-message";
 import { BasketStatusButtons } from "./status-buttons";
 import {
   Table,
@@ -30,10 +31,10 @@ export default async function BasketDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ editar?: string }>;
+  searchParams: Promise<{ editar?: string; error?: string; ok?: string }>;
 }) {
   const { id: idRaw } = await params;
-  const { editar } = await searchParams;
+  const { editar, error, ok } = await searchParams;
   const id = Number(idRaw);
   if (!Number.isFinite(id)) notFound();
 
@@ -84,9 +85,13 @@ export default async function BasketDetailPage({
         </div>
       </div>
 
+      {!editing && <FlashMessage error={error} ok={ok} />}
+
       {editing ? (
         <BasketForm
           products={products}
+          returnTo={`/cestas/${basket.id}?editar=1`}
+          initialError={error}
           initial={{
             id: basket.id,
             name: basket.name,

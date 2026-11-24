@@ -1,40 +1,36 @@
 "use client";
 
-import { useTransition } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  adminResetPassword,
-  changeOwnPassword,
-} from "@/lib/actions/auth";
+import { FlashMessage } from "@/components/flash-message";
 
-export function ChangeOwnPasswordForm() {
-  const [pending, startTransition] = useTransition();
+export function ChangeOwnPasswordForm({
+  initialError,
+  initialOk,
+}: {
+  initialError?: string;
+  initialOk?: string;
+}) {
+  const [pending, setPending] = useState(false);
 
   return (
     <form
+      action="/api/cuenta/password"
+      method="post"
       className="space-y-4 rounded-xl border bg-card p-6"
       onSubmit={(e) => {
-        e.preventDefault();
-        const form = e.currentTarget;
-        const fd = new FormData(form);
-        startTransition(async () => {
-          const result = await changeOwnPassword(fd);
-          if (!result.ok) {
-            toast.error(result.error);
-            return;
-          }
-          toast.success(result.message);
-          form.reset();
-        });
+        if (!e.currentTarget.checkValidity()) return;
+        setPending(true);
       }}
     >
+      <input type="hidden" name="returnTo" value="/cuenta" />
       <h2 className="font-display text-xl">Cambiar mi contraseña</h2>
       <p className="text-sm text-muted-foreground">
         Indique su contraseña actual y la nueva (mínimo 6 caracteres).
       </p>
+      <FlashMessage error={initialError} ok={initialOk} />
       <div className="space-y-2">
         <Label htmlFor="currentPassword">Contraseña actual</Label>
         <Input
@@ -76,10 +72,14 @@ export function ChangeOwnPasswordForm() {
 
 export function AdminResetPasswordForm({
   otherUsernames,
+  initialError,
+  initialOk,
 }: {
   otherUsernames: string[];
+  initialError?: string;
+  initialOk?: string;
 }) {
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
   if (otherUsernames.length === 0) {
     return null;
@@ -87,26 +87,20 @@ export function AdminResetPasswordForm({
 
   return (
     <form
+      action="/api/cuenta/admin-reset"
+      method="post"
       className="space-y-4 rounded-xl border bg-card p-6"
       onSubmit={(e) => {
-        e.preventDefault();
-        const form = e.currentTarget;
-        const fd = new FormData(form);
-        startTransition(async () => {
-          const result = await adminResetPassword(fd);
-          if (!result.ok) {
-            toast.error(result.error);
-            return;
-          }
-          toast.success(result.message);
-          form.reset();
-        });
+        if (!e.currentTarget.checkValidity()) return;
+        setPending(true);
       }}
     >
+      <input type="hidden" name="returnTo" value="/cuenta" />
       <h2 className="font-display text-xl">Restablecer otra contraseña</h2>
       <p className="text-sm text-muted-foreground">
         Solo administración. La otra persona deberá iniciar sesión de nuevo.
       </p>
+      <FlashMessage error={initialError} ok={initialOk} />
       <div className="space-y-2">
         <Label htmlFor="targetUsername">Usuario</Label>
         <select

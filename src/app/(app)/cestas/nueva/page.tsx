@@ -1,7 +1,12 @@
 import { listComponentProductOptions } from "@/lib/actions/baskets";
 import { BasketForm } from "@/components/basket-form";
 
-export default async function NewBasketPage() {
+export default async function NewBasketPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const query = await searchParams;
   const products = await listComponentProductOptions();
 
   return (
@@ -13,7 +18,11 @@ export default async function NewBasketPage() {
           el coste de adquisición de cada producto.
         </p>
       </div>
-      <BasketForm products={products} />
+      <BasketForm
+        products={products}
+        returnTo="/cestas/nueva"
+        initialError={query.error}
+      />
     </div>
   );
 }

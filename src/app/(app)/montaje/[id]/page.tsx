@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FlashMessage } from "@/components/flash-message";
 import { CancelAssemblyButton } from "./cancel-button";
 
 const modeLabel: Record<string, string> = {
@@ -21,10 +22,13 @@ const modeLabel: Record<string, string> = {
 
 export default async function AssemblyDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; ok?: string }>;
 }) {
   const { id: idRaw } = await params;
+  const query = await searchParams;
   const id = Number(idRaw);
   if (!Number.isFinite(id)) notFound();
 
@@ -74,6 +78,8 @@ export default async function AssemblyDetailPage({
           </Button>
         </div>
       </div>
+
+      <FlashMessage error={query.error} ok={query.ok} />
 
       {assembly.status === "cancelled" && (
         <p className="rounded-md border bg-muted/40 px-4 py-3 text-sm">

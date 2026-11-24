@@ -4,8 +4,13 @@ import { requireUser } from "@/lib/auth";
 import { CategoryForms } from "./category-forms";
 import { Badge } from "@/components/ui/badge";
 
-export default async function CategoriesPage() {
+export default async function CategoriesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; ok?: string }>;
+}) {
   await requireUser();
+  const query = await searchParams;
   const db = getDb();
   const cats = (await db.select().from(categories)).sort((a, b) =>
     a.name.localeCompare(b.name, "es"),
@@ -23,6 +28,8 @@ export default async function CategoriesPage() {
 
       <CategoryForms
         categories={cats.map((c) => ({ id: c.id, name: c.name }))}
+        initialError={query.error}
+        initialOk={query.ok}
       />
 
       <div className="grid gap-4 md:grid-cols-2">
