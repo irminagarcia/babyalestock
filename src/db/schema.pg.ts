@@ -10,12 +10,13 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
-/** Application users (local username/password). */
+/** Application users (local username/password). role: admin | staff */
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   displayName: text("display_name").notNull(),
   passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("staff"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: text("created_at")
     .notNull()

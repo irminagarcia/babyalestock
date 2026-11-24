@@ -8,12 +8,13 @@ import {
   index,
 } from "drizzle-orm/sqlite-core";
 
-/** Application users (local username/password). */
+/** Application users (local username/password). role: admin | staff */
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
   displayName: text("display_name").notNull(),
   passwordHash: text("password_hash").notNull(),
+  role: text("role").notNull().default("staff"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at")
     .notNull()

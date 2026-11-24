@@ -3,9 +3,10 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import {
   createSession,
+  isAdmin,
   logout,
   requireUser,
   sessionCookieOptions,
@@ -14,6 +15,11 @@ import {
 import { getDb } from "@/db/client";
 import { exec, one } from "@/db/query";
 import { sessions, users } from "@/db/schema";
+import {
+  validateDisplayName,
+  validateNewPassword,
+  validateUsername,
+} from "@/lib/user-profile";
 
 export type LoginState = {
   error?: string;
@@ -22,8 +28,6 @@ export type LoginState = {
 export type PasswordActionResult =
   | { ok: true; message: string }
   | { ok: false; error: string };
-
-const MIN_PASSWORD_LENGTH = 6;
 
 export async function loginAction(
   _prev: LoginState,
@@ -57,6 +61,52 @@ export async function logoutAction(): Promise<void> {
   redirect("/login");
 }
 
+/** Logged-in user updates display name and/or username. */
+export async function updateOwnProfile(
+  formData: FormData,
+): Promise<PasswordActionResult> {
+  const user = await requireUser();
+  const nameResult = validateDisplayName(
+    String(formData.get("displayName") ?? ""),
+  );
+  if (!nameResult.ok) return nameResult;
+  const userResult = validateUsername(String(formData.get("username") ?? ""));
+  if (!userResult.ok) return userResult;
+
+  const db = getDb();
+  if (userResult.username !== user.username) {
+    const taken = await one(
+      db
+        .select({ id: users.id })
+        .from(users)
+        .where(
+          and(
+            eq(users.username, userResult.username),
+            ne(users.id, user.id),
+          ),
+        ),
+    );
+    if (taken) {
+      return {
+        ok: false,
+        error: `El usuario «${userResult.username}» ya está en uso.`,
+      };
+    }
+  }
+
+  await exec(
+    db
+      .update(users)
+      .set({
+        displayName: nameResult.displayName,
+        username: userResult.username,
+      })
+      .where(eq(users.id, user.id)),
+  );
+
+  return { ok: true, message: "Perfil actualizado." };
+}
+
 /** Logged-in user changes their own password (current password required). */
 export async function changeOwnPassword(
   formData: FormData,
@@ -66,18 +116,11 @@ export async function changeOwnPassword(
   const newPassword = String(formData.get("newPassword") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    return { ok: false, error: "Complete todos los campos." };
+  if (!currentPassword) {
+    return { ok: false, error: "Indique su contraseña actual." };
   }
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return {
-      ok: false,
-      error: `La nueva contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`,
-    };
-  }
-  if (newPassword !== confirmPassword) {
-    return { ok: false, error: "La confirmación no coincide." };
-  }
+  const pwd = validateNewPassword(newPassword, confirmPassword);
+  if (!pwd.ok) return pwd;
 
   const db = getDb();
   const row = await one(db.select().from(users).where(eq(users.id, user.id)));
@@ -99,14 +142,14 @@ export async function changeOwnPassword(
 }
 
 /**
- * Admin (username `admin`) can set another user's password without knowing
- * the old one. Invalidates that user's sessions.
+ * Admin can set another user's password without knowing the old one.
+ * Invalidates that user's sessions.
  */
 export async function adminResetPassword(
   formData: FormData,
 ): Promise<PasswordActionResult> {
   const actor = await requireUser();
-  if (actor.username !== "admin") {
+  if (!isAdmin(actor)) {
     return {
       ok: false,
       error: "Solo administración puede restablecer otras contraseñas.",
@@ -117,24 +160,11 @@ export async function adminResetPassword(
   const newPassword = String(formData.get("newPassword") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (!targetUsername || !newPassword || !confirmPassword) {
-    return { ok: false, error: "Complete todos los campos." };
+  if (!targetUsername) {
+    return { ok: false, error: "Seleccione un usuario." };
   }
-  if (targetUsername === "admin") {
-    return {
-      ok: false,
-      error: "Use «Cambiar mi contraseña» para su propia cuenta.",
-    };
-  }
-  if (newPassword.length < MIN_PASSWORD_LENGTH) {
-    return {
-      ok: false,
-      error: `La nueva contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`,
-    };
-  }
-  if (newPassword !== confirmPassword) {
-    return { ok: false, error: "La confirmación no coincide." };
-  }
+  const pwd = validateNewPassword(newPassword, confirmPassword);
+  if (!pwd.ok) return pwd;
 
   const db = getDb();
   const target = await one(
@@ -142,6 +172,12 @@ export async function adminResetPassword(
   );
   if (!target) {
     return { ok: false, error: "Usuario no encontrado." };
+  }
+  if (target.id === actor.id) {
+    return {
+      ok: false,
+      error: "Use «Cambiar mi contraseña» para su propia cuenta.",
+    };
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -153,5 +189,59 @@ export async function adminResetPassword(
   return {
     ok: true,
     message: `Contraseña de «${target.username}» restablecida. Deberá iniciar sesión de nuevo.`,
+  };
+}
+
+/** Admin creates a new staff user. */
+export async function adminCreateUser(
+  formData: FormData,
+): Promise<PasswordActionResult> {
+  const actor = await requireUser();
+  if (!isAdmin(actor)) {
+    return {
+      ok: false,
+      error: "Solo administración puede crear usuarios.",
+    };
+  }
+
+  const nameResult = validateDisplayName(
+    String(formData.get("displayName") ?? ""),
+  );
+  if (!nameResult.ok) return nameResult;
+  const userResult = validateUsername(String(formData.get("username") ?? ""));
+  if (!userResult.ok) return userResult;
+  const newPassword = String(formData.get("newPassword") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const pwd = validateNewPassword(newPassword, confirmPassword);
+  if (!pwd.ok) return pwd;
+
+  const db = getDb();
+  const taken = await one(
+    db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, userResult.username)),
+  );
+  if (taken) {
+    return {
+      ok: false,
+      error: `El usuario «${userResult.username}» ya existe.`,
+    };
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await exec(
+    db.insert(users).values({
+      username: userResult.username,
+      displayName: nameResult.displayName,
+      passwordHash,
+      role: "staff",
+      isActive: true,
+    }),
+  );
+
+  return {
+    ok: true,
+    message: `Usuario «${userResult.username}» creado.`,
   };
 }

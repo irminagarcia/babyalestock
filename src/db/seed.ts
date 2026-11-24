@@ -10,6 +10,7 @@ async function ensureUser(opts: {
   username: string;
   displayName: string;
   password: string;
+  role: "admin" | "staff";
 }): Promise<void> {
   const db = getDb();
   const existing = await one(
@@ -19,17 +20,21 @@ async function ensureUser(opts: {
   if (existing) {
     // Re-activate if someone disabled the account; do not overwrite passwords
     // on normal seed (use `npm run reset-users` to force defaults).
-    if (!existing.isActive) {
-      await exec(
-        db
-          .update(users)
-          .set({ isActive: true })
-          .where(eq(users.username, opts.username)),
-      );
-      console.log(`Usuario reactivado: ${opts.username}`);
-    } else {
-      console.log(`Usuario ya existe: ${opts.username}`);
-    }
+    // Ensure role is set (BA-27 migration / older rows).
+    await exec(
+      db
+        .update(users)
+        .set({
+          isActive: true,
+          role: opts.role,
+        })
+        .where(eq(users.username, opts.username)),
+    );
+    console.log(
+      existing.isActive
+        ? `Usuario ya existe: ${opts.username}`
+        : `Usuario reactivado: ${opts.username}`,
+    );
     return;
   }
 
@@ -39,6 +44,7 @@ async function ensureUser(opts: {
       username: opts.username,
       displayName: opts.displayName,
       passwordHash,
+      role: opts.role,
       isActive: true,
     }),
   );
@@ -70,11 +76,13 @@ async function seed() {
       username: "admin",
       displayName: "Administración",
       password: process.env.BABYALESTOCK_ADMIN_PASSWORD || "admin123",
+      role: "admin" as const,
     },
     {
       username: "tienda",
       displayName: "Personal de tienda",
       password: process.env.BABYALESTOCK_SHOP_PASSWORD || "tienda123",
+      role: "staff" as const,
     },
   ];
 
