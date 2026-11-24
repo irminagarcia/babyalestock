@@ -5,17 +5,21 @@ import { users } from "@/db/schema";
 import {
   isCloudflareWorkerRuntime,
   syncHostedDatabaseUrlFromBindings,
+  cloudflareBindingHasDatabaseUrl,
+  MISSING_DATABASE_URL_HINT,
 } from "@/db/dialect";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Lightweight hosted diagnostic — no secrets in the body.
- * Open /api/health after a Cloudflare deploy to see if Neon is reachable.
+ * Hosted diagnostic — no secret values.
+ * Use after CF deploy to see if Neon is bound at **runtime**.
  */
 export async function GET() {
   syncHostedDatabaseUrlFromBindings();
-  const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
+  const processEnvHasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
+  const cfBindingHasDatabaseUrl = cloudflareBindingHasDatabaseUrl();
+  const hasDatabaseUrl = processEnvHasDatabaseUrl || cfBindingHasDatabaseUrl;
   const runtime = isCloudflareWorkerRuntime()
     ? "cloudflare-workers"
     : "node";
@@ -26,7 +30,6 @@ export async function GET() {
   if (hasDatabaseUrl) {
     try {
       const db = getDb();
-      // Dialect-agnostic probe (LibSQL + Neon Drizzle handles).
       await one(db.select({ id: users.id }).from(users).limit(1));
       dbReachable = true;
     } catch (err) {
@@ -38,8 +41,7 @@ export async function GET() {
     }
   } else if (runtime === "cloudflare-workers") {
     dbReachable = false;
-    dbError =
-      "DATABASE_URL missing in Worker runtime (set Production secret, then deploy latest main).";
+    dbError = MISSING_DATABASE_URL_HINT;
   }
 
   const ok =
@@ -53,9 +55,11 @@ export async function GET() {
       runtime,
       dialect: usingPostgres() ? "postgres" : "sqlite",
       hasDatabaseUrl,
+      processEnvHasDatabaseUrl,
+      cfBindingHasDatabaseUrl,
       dbReachable,
       ...(dbError ? { dbError } : {}),
-      tip: "If preview <version>-babyalestock.*.workers.dev works but babyalestock.*.workers.dev fails: Deployments → promote that Version ID to 100% production traffic. Do not Retry an old SHA.",
+      tip: "main / workers.dev / version previews of main use Production RUNTIME secrets — not Build vars, not Previews Base alone. Settings → Variables and Secrets → Production → Secret DATABASE_URL → redeploy main tip.",
     },
     { status: ok ? 200 : 503 },
   );

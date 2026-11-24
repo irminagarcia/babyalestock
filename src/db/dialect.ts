@@ -2,17 +2,15 @@
  * Hosted Cloudflare / Cursor apps set DATABASE_URL (Postgres).
  * Local / LAN double-click keeps SQLite via BABYALESTOCK_DATA_DIR when unset.
  *
- * On OpenNext Workers, secrets land in the Worker `env` binding and are copied
- * into `process.env` by the adapter — but we also pull from
- * `getCloudflareContext().env` as a fallback when Retry/redeploy leaves
- * process.env empty for secrets.
+ * On OpenNext Workers, runtime secrets must be Worker **Variables and Secrets**
+ * (Production for `main` deploys; Previews only for non-production branches).
+ * **Build** variables alone do NOT bind into the Worker — login then sees
+ * hasDatabaseUrl: false.
  *
- * Critical: never fall through to libsql `createClient` on workerd — that is the
- * `_createClient3` crash in worker.js after a bad Retry deploy.
+ * Never fall through to libsql `createClient` on workerd (_createClient3 crash).
  */
 
 export function isCloudflareWorkerRuntime(): boolean {
-  // 1) workerd global (most reliable on CF Workers)
   try {
     if (typeof (globalThis as { WebSocketPair?: unknown }).WebSocketPair !== "undefined") {
       return true;
@@ -20,7 +18,6 @@ export function isCloudflareWorkerRuntime(): boolean {
   } catch {
     /* ignore */
   }
-  // 2) UA string
   try {
     if (
       typeof navigator !== "undefined" &&
@@ -31,7 +28,6 @@ export function isCloudflareWorkerRuntime(): boolean {
   } catch {
     /* ignore */
   }
-  // 3) OpenNext Worker bindings present
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { getCloudflareContext } =
@@ -47,34 +43,44 @@ export function isCloudflareWorkerRuntime(): boolean {
       return true;
     }
   } catch {
-    /* Not in a Workers request (local Node, build, unit tests). */
+    /* local Node / build / tests */
   }
   return false;
 }
 
-/**
- * Ensure `process.env.DATABASE_URL` is set from Cloudflare bindings when present.
- * Safe no-op outside a Workers request context.
- */
-export function syncHostedDatabaseUrlFromBindings(): void {
-  if (process.env.DATABASE_URL?.trim()) return;
+function readDatabaseUrlFromCloudflareEnv(): string | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { getCloudflareContext } =
       require("@opennextjs/cloudflare") as typeof import("@opennextjs/cloudflare");
     const ctx = getCloudflareContext();
-    const raw = (ctx.env as Record<string, unknown>).DATABASE_URL;
-    if (typeof raw === "string" && raw.trim()) {
-      process.env.DATABASE_URL = raw.trim();
-    }
+    const raw = (ctx.env as Record<string, unknown> | undefined)?.DATABASE_URL;
+    if (typeof raw === "string" && raw.trim()) return raw.trim();
   } catch {
-    // Not running inside a Workers request (local Node, build, unit tests).
+    /* not in Workers request */
+  }
+  return null;
+}
+
+/** Diagnostic: is DATABASE_URL present on the CF env binding (not process.env)? */
+export function cloudflareBindingHasDatabaseUrl(): boolean {
+  return Boolean(readDatabaseUrlFromCloudflareEnv());
+}
+
+/**
+ * Ensure `process.env.DATABASE_URL` is set from Cloudflare Worker bindings.
+ * Safe no-op outside a Workers request context.
+ */
+export function syncHostedDatabaseUrlFromBindings(): void {
+  if (process.env.DATABASE_URL?.trim()) return;
+  const fromBinding = readDatabaseUrlFromCloudflareEnv();
+  if (fromBinding) {
+    process.env.DATABASE_URL = fromBinding;
   }
 }
 
 export function isPostgres(): boolean {
   syncHostedDatabaseUrlFromBindings();
-  // On Workers we ALWAYS use Neon/Postgres — never libsql file DB.
   if (isCloudflareWorkerRuntime()) return true;
   return Boolean(process.env.DATABASE_URL?.trim());
 }
@@ -84,3 +90,7 @@ export function getDatabaseUrl(): string | null {
   const url = process.env.DATABASE_URL?.trim();
   return url || null;
 }
+
+/** Spanish copy for missing runtime secret (main → Production, not Build / Previews-only). */
+export const MISSING_DATABASE_URL_HINT =
+  "Falta DATABASE_URL en el Worker en tiempo de ejecución. Cloudflare → babyalestock → Settings → Variables and Secrets → entorno Production (deploy de main) → Secret DATABASE_URL. No basta con variables de Build ni solo Previews Base. Guardá y volvé a desplegar main (Retry del tip bb33a94+).";
