@@ -73,9 +73,9 @@ export async function GET() {
       supplierFiscalReady,
       gitSha,
       // Bump when shipping Workers fixes — confirms tip is live vs stale deploy.
-      codeStamp: "ba30-edit-v3",
+      codeStamp: "ba31-final-v1",
       ...(dbError ? { dbError } : {}),
-      tip: "After merge: Cloudflare → babyalestock → Deployments → Retry tip of main (not an old SHA). Expect codeStamp ba30-edit-v3 + supplierFiscalReady true. Soft Link HTML looks like <a>; trust codeStamp, not the Editar markup.",
+      tip: "After merge: Cloudflare → babyalestock → Deployments → Retry tip of main (not an old SHA). Expect codeStamp ba31-final-v1 + hasDatabaseUrl/dbReachable true. Soft Link HTML looks like <a>; trust codeStamp.",
     },
     { status: ok ? 200 : 503 },
   );

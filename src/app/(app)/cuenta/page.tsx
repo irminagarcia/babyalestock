@@ -34,6 +34,7 @@ export default async function CuentaPage({
   const passwordFlash = sectionFlash(query, "password");
   const createFlash = sectionFlash(query, "create");
   const adminResetFlash = sectionFlash(query, "admin");
+  const deactivateFlash = sectionFlash(query, "deactivate");
 
   const allUsers = admin
     ? await getDb()
@@ -55,9 +56,11 @@ export default async function CuentaPage({
       <div>
         <h1 className="font-display text-3xl">Cuenta</h1>
         <p className="text-muted-foreground">
-          Sesión de <strong>{user.displayName}</strong> ({user.username}).
-          Actualice su nombre, usuario y contraseña; no deje las contraseñas por
-          defecto en la red local.
+          Sesión de <strong>{user.displayName}</strong> ({user.username}). Aquí
+          puede cambiar su nombre, su usuario de acceso y su contraseña
+          {admin
+            ? ", y dar de alta a otra persona de la tienda."
+            : "."}
         </p>
       </div>
 
@@ -78,15 +81,18 @@ export default async function CuentaPage({
           <div>
             <h2 className="font-display text-2xl">Administración</h2>
             <p className="text-sm text-muted-foreground">
-              Gestione las cuentas de acceso a Baby Ale.
+              Alta de usuarios de tienda, listado y restablecer contraseñas.
             </p>
           </div>
           <AdminUsersList
+            currentUsername={user.username}
             users={allUsers.map((u) => ({
               username: u.username,
               displayName: u.displayName,
               role: u.role || (u.username === "admin" ? "admin" : "staff"),
             }))}
+            initialError={deactivateFlash.error}
+            initialOk={deactivateFlash.ok}
           />
           <AdminCreateUserForm
             initialError={createFlash.error}
